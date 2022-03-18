@@ -113,7 +113,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
             if ((self.t in ['Rec', '2nd', 'Target'] and col == self.r[0].s.col) or read or self.t in
                ["Gate", "1st", "Ctrl"]) and sel_y in s.y and not s.full:
                 if not self.undragged:
-                    self.last_s.full = False
+                    self.last_s.empty()
                 self.widget.place(x=s.x[0], y=s.y[0])  # place in generic current spot
                 s.full, s.obj, self.s = True, self, s  # mark the spot as filled, save obj and spot to each other
                 if len(self.r) != 0 and self.r[-1].t in ["Target", "2nd", "Rec"]:  # anything with prior placements
@@ -176,8 +176,8 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                     ent.place(x=s.x[0] + self.f.a.c, y=s.y[0] + 4 * self.f.a.c, w=10 * self.f.a.c)
 
                     def get_param(entry):
-                        self.c = self.dict["c"] + "(" + entry.get() + ")"
-                        self.widget["text"] = self.k[0:self.k.index("(")] + "(" + entry.get() + ")"
+                        self.c, self.widget["text"] = self.dict["c"]+"("+entry.get()+")", \
+                                                      self.k[0:self.k.index("(")]+"("+entry.get()+")"
                         self.f.a.rewrite_code()
                         entry.destroy()
                     ent.bind('<Return>', lambda x: get_param(ent))
@@ -238,11 +238,10 @@ class App(tk.Frame):
             self.f_d[frame]["b"] = tk.Frame(self.f_d[frame]["f"])  # b = box
         self.f_d["c"]["f"].place(x=round(0.8 * a.winfo_screenwidth()))
         self.f_d["c"]["b"].grid(ipady=round(0.5 * a.winfo_screenheight()), ipadx=round(0.1 * a.winfo_screenwidth()))
-        self.g_to_c = True  # grid to code
-        self.code = tk.Text(self.f_d["c"]["f"], background="dark grey")  # the written code on the side
+        self.code, self.bnk, self.g_to_c = tk.Text(self.f_d["c"]["f"], background="dark grey"), \
+            tk.LabelFrame(self.f_d["g"]["f"], text="Item Bank"), True
         self.code.bind("<Key>", self.code_to_grid)
         self.code.place(x=0, y=0, relwidth=1.0, relheight=1.0)
-        self.bnk = tk.LabelFrame(self.f_d["g"]["f"], text="Item Bank")
         self.bnk.place(x=5 * self.c, h=28 * self.c, w=4 * self.c * (4 * self.cur['lyr'] + 1))
         for i in range(max(self.cur['q'], self.cur['c'])):  # all wires
             for n in range(self.cur['lyr']):  # all layers
@@ -288,23 +287,27 @@ class App(tk.Frame):
             for g in self.i_b:
                 if self.i_b[g].cstm:
                     c += self.i_b[g].dict["def"]
-            for i in range(self.cur['lyr']):
-                for n in range(self.cur["q"]):
-                    obj = self.d['s']["{}{}:{}".format("q", n, i)].obj
-                    if obj is not None and obj.s.full:  # only add if filled
-                        final_layer = i
-                        if obj.t == "Read" and obj.r[0].s.t == "c":
-                            c += "\nmeasure q[{}] -> c[{}];".format(str(n), obj.r[0].s.row)
-                        if obj.t == "Gate" or (obj.t in ["1st", "Ctrl"] and obj.s != obj.r[-1].s):
-                            start_text = "\n{} "
-                            if obj.cstm and obj.ct == "mtrx":
-                                start_text = "\n// pragma custom_gate_action {} "
-                            c += start_text.format(obj.c)
-                            for item in ([obj] + obj.r):
-                                location_text = "q[{}]; "
-                                if len(obj.r) != 0 and item != obj.r[-1]:
-                                    location_text = "q[{}], "
-                                c += location_text.format(str(item.s.row))
+            col = row = 0
+            while col < self.cur['lyr'] and row < self.cur["q"]:
+                obj = self.d['s']["{}{}:{}".format("q", row, col)].obj
+                if obj is not None and obj.s.full:  # only add if filled
+                    final_layer = col
+                    if obj.t == "Read" and obj.r[0].s.t == "c":
+                        c += "\nmeasure q[{}] -> c[{}];".format(str(row), obj.r[0].s.row)
+                    if obj.t == "Gate" or (obj.t in ["1st", "Ctrl"] and obj.s != obj.r[-1].s):
+                        start_text = "\n{} "
+                        if obj.cstm and obj.ct == "mtrx":
+                            start_text = "\n// pragma custom_gate_action {} "
+                        c += start_text.format(obj.c)
+                        for item in ([obj] + obj.r):
+                            location_text = "q[{}]; "
+                            if len(obj.r) != 0 and item != obj.r[-1]:
+                                location_text = "q[{}], "
+                            c += location_text.format(str(item.s.row))
+                col += 1
+                if col == self.cur["lyr"]:
+                    row += 1
+                    col = 0
             self.code.delete(1.0, tk.END)
             self.code.insert(1.0, c)
             if final_layer >= self.cur['lyr'] - 1:
@@ -418,9 +421,8 @@ class App(tk.Frame):
         fr = tk.Toplevel(self)
         fr.title("Custom Gate Creation")
         fr.geometry(str(self.c*50)+"x"+str(self.c*55))
-        gs = tk.Listbox(fr, selectmode="multiple")
+        gs, t = tk.Listbox(fr, selectmode="multiple"), tk.Text(fr)
         gs.place(x=self.c, y=self.c, h=self.c*40, w=self.c*20)
-        t = tk.Text(fr)
         t.place(x=25*self.c, y=self.c, w=24*self.c, h=self.c*43)
         i = 0
         for item in self.i_b:
@@ -476,7 +478,8 @@ class App(tk.Frame):
         tk.Label(fr, text="Qubit Number").place(x=0, y=self.c*42)
         qn = tk.Entry(fr)
         qn.place(x=self.c*16, y=self.c*42, w=self.c*5, h=self.c*4)
-        tk.Button(fr, text="Make Outline", command=lambda: build(fr, t, gs, int(qn.get()))).place(x=self.c, y=self.c*48)
+        tk.Button(fr, text="Make Template", command=lambda: build(fr, t, gs, int(qn.get()))).place(x=self.c,
+                                                                                                   y=self.c*48)
 
     def custom_mtrx(self):
         fr = tk.Toplevel(self)

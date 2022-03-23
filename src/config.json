@@ -1,0 +1,100 @@
+{
+  "Gate": {
+    "X": {
+      "n": "Pauli-X",
+      "c": "x",
+      "bg": "#e6b8af",
+      "prm": false
+    },
+    "Y": {
+      "n": "Pauli-Y",
+      "c": "y",
+      "bg": "#f4cccc",
+      "prm": false
+    },
+    "Z": {
+      "n": "Pauli-Z",
+      "c": "z",
+      "bg": "#fce5cd",
+      "prm": false
+    },
+    "H": {
+      "n": "Hadamard",
+      "c": "h",
+      "bg": "#fff2cc",
+      "prm": false
+    },
+    "T": {
+      "n": "pi/8 phase",
+      "c": "t",
+      "bg": "#c9daf8",
+      "prm": false
+    },
+    "T+": {
+      "n": "pi/8 phase adjoint",
+      "c": "tdg",
+      "bg": "#cfe2f3",
+      "prm": false
+    },
+    "S": {
+      "n": "Phase",
+      "c": "s",
+      "bg": "#d9ead3",
+      "prm": false
+    },
+    "S+": {
+      "n": "Phase adjoint",
+      "c": "sdg",
+      "bg": "#d0e0e3",
+      "prm": false
+    },
+    "RX(θ)": {
+      "n": "X-Rotate",
+      "c": "rx",
+      "bg": "#d9d2e9",
+      "prm": true
+    },
+    "RY(θ)": {
+      "n": "Y-Rotate",
+      "c": "ry",
+      "bg": "#d9d2e9",
+      "prm": true
+    },
+    "RZ(θ)": {
+      "n": "Z-Rotate",
+      "c": "rz",
+      "bg": "#d9d2e9",
+      "prm": true
+    }
+  },
+  "1st": {
+    "SWAP": {
+      "n": "Swap",
+      "c": "swap",
+      "bg": "#d9d2e9",
+      "prm": false
+    },
+    "CZ": {
+      "n": "Controlled-phase",
+      "c": "cz",
+      "bg": "#ead1dc",
+      "prm": false
+    }
+  },
+  "Ctrl": {
+    "CNOT": {
+      "n": "Controlled-NOT",
+      "c": "cx",
+      "bg": "#f7e7e6",
+      "prm": false
+    }
+  },
+  "Read": {
+    "READ": {
+      "n": "Measure",
+      "c": "",
+      "bg": "",
+      "prm": false
+    }
+  }
+}

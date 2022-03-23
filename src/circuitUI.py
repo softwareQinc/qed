@@ -4,20 +4,13 @@ from tkinter import filedialog as fd
 import json
 import numpy as np
 
-jd = '{"Gate":{"X":{"n":"Pauli-X","c":"x","bg":"#e6b8af","prm":false},"Y":{"n":"Pauli-Y","c":"y","bg":"#f4cccc","prm":'\
-     'false},"Z":{"n":"Pauli-Z","c":"z","bg":"#fce5cd","prm":false},"H":{"n":"Hadamard","c":"h","bg":"#fff2cc","prm":'\
-     'false},"T":{"n":"pi/8 phase","c":"t","bg":"#c9daf8","prm":false},"T+":{"n":"pi/8 phase adjoint","c":"tdg","bg":' \
-     '"#cfe2f3","prm":false},"S":{"n":"Phase","c":"s","bg":"#d9ead3","prm":false},"S+":{"n":"Phase adjoint","c":"sdg",'\
-     '"bg":"#d0e0e3","prm":false},"RX(θ)":{"n":"X-Rotate","c":"rx","bg":"#d9d2e9","prm":true},"RY(θ)":{"n":"Y-Rotate",'\
-     '"c":"ry","bg":"#d9d2e9","prm":true},"RZ(θ)":{"n":"Z-Rotate","c":"rz","bg":"#d9d2e9","prm":true}},"1st":{"SWAP":' \
-     '{"n":"Swap","c":"swap","bg":"#d9d2e9","prm":false},"CZ":{"n":"Controlled-phase","c":"cz","bg":"#ead1dc","prm":' \
-     'false}},"Ctrl":{"CNOT":{"n":"Controlled-NOT","c":"cx","bg":"#f7e7e6","prm":false}},"Read":{"READ":{"n":"Measure"'\
-     ',"c":"","bg":"","prm":false}}}'
+file = open("config.json")
+jd = json.load(file)
 
 
 class ScrollFrame(tk.Frame):  # allows both scrollbars, used as the main frame to hold all widgets
     def __init__(self, parent):
-        self.outer = tk.Frame(parent)
+        self.outer, self.a = tk.Frame(parent), None
         self.canvas = tk.Canvas(self.outer)
         self.scroll_y, self.scroll_x = tk.Scrollbar(self.outer, command=self.canvas.yview), \
             tk.Scrollbar(self.outer, orient="horizontal", command=self.canvas.xview)
@@ -33,7 +26,6 @@ class ScrollFrame(tk.Frame):  # allows both scrollbars, used as the main frame t
         self.bind("<Configure>", lambda x: resizeCanvas())
         self.canvas.pack(fill="both", expand=True, side="left")
         self.pack, self.place, self.grid = self.outer.pack, self.outer.place, self.outer.grid
-        self.a = None
 
 
 class Wire:  # Create class for all wires created
@@ -140,7 +132,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                         for i in range(self.r[-1].s.row + 1, s.row):  # keep between empty
                             self.f.a.d['s']["{}{}:{}".format(t, i, s.col)].full = True
                         if self.t == "Target":
-                            self.widget.place(x=s.x[0] + 2 * self.f.a.c, y=s.y[0] + 2 * self.f.a.c)
+                            self.widget.place(x=s.x[0]+2*self.f.a.c, y=s.y[0]+2*self.f.a.c)
                             if row < self.r[-1].s.row:
                                 self.lnks[0].place(y=s.y[0] + 10 * self.f.a.c)
                         elif self.t == "2nd":
@@ -148,8 +140,8 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                             if row < self.r[-1].s.row:
                                 self.lnks[0].place(y=s.y[0] + 12 * self.f.a.c)
                             if self.r_no > 1:
-                                nw = Obj(self.f, self.k, self.dict, "2nd", s, self.r+[self], self.r_no-1, self.cstm,
-                                         self.ct)
+                                nw = Obj(self.f, self.k, self.dict, "2nd", s, self.r+[self],
+                                         self.r_no-1, self.cstm, self.ct)
                                 for obj in self.r:
                                     obj.r += [nw]
                                 self.r += [nw]
@@ -170,8 +162,8 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                         for i in range(s.col, self.f.a.cur["lyr"]):
                             self.f.a.d['s']["{}{}:{}".format(t, s.row, i)].full = True
                         gate_t = "Rec"
-                    self.r += [Obj(self.f, self.k, self.dict, gate_t, s, self.r+[self], self.r_no-1, self.cstm,
-                                   self.ct)]
+                    self.r += [Obj(self.f, self.k, self.dict, gate_t, s, self.r+[self],
+                                   self.r_no-1, self.cstm, self.ct)]
                 if self.dict["prm"] and self.f.a.g_to_c and self.c == self.dict["c"]:
                     ent = tk.Entry(self.f, textvariable=tk.StringVar(self.f, value="θ"), bg=self.dict["bg"])
                     ent.place(x=s.x[0] + self.f.a.c, y=s.y[0] + 4 * self.f.a.c, w=10 * self.f.a.c)
@@ -210,10 +202,10 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                     if self.s.row > obj.s.row:
                         rnge = range(obj.s.row + 1, self.s.row + 1)
                     for i in rnge:
-                        if i < self.f.a.cur["q"]:
-                            self.f.a.d['s']["{}{}:{}".format("q", i, obj.s.col)].empty()
-                        else:
-                            self.f.a.d['s']["{}{}:{}".format("c", i-self.f.a.cur["q"], obj.s.col)].empty()
+                        t = "q"
+                        if i >= self.f.a.cur["q"]:
+                            t, i = "c", i-self.f.a.cur["q"]
+                        self.f.a.d['s']["{}{}:{}".format(t, i, obj.s.col)].empty()
             elif obj.t == "Read":
                 for i in range(obj.s.col, self.f.a.cur["lyr"]):
                     self.f.a.d['s']["{}{}:{}".format("q", obj.s.row, i)].empty()
@@ -225,7 +217,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
 class App(tk.Frame):
     def __init__(self, a, menu):
         self.c = round(a.winfo_screenheight() / 160)  # standard separations to configure the app
-        self.d = {'s': {}, 'w': {}, 'i': json.loads(jd)}  # all dicts, for spots, wires, and items
+        self.d = {'s': {}, 'w': {}, 'i': jd}  # all dicts, for spots, wires, and items
         self.cur = {'q': 3, 'c': 2, 'lyr': len(self.d['i']['Gate'])+len(self.d['i']['1st'])+len(self.d['i']['Ctrl'])}
         self.init = {'q': self.cur['q'], 'c': self.cur['c'], 'lyr': self.cur['lyr']}  # initial counts
         tk.Frame.__init__(self, a)  # create app
@@ -313,7 +305,7 @@ class App(tk.Frame):
             self.code.insert(1.0, c)
             if final_layer >= self.cur['lyr'] - 1:
                 App.add_element(self, 'lyr')
-            elif final_layer + self.init["lyr"] < self.cur['lyr']:
+            elif final_layer + 1 < self.init['lyr'] < self.cur['lyr']:
                 for i in range(final_layer+1, self.cur['lyr']):
                     App.delete_element(self, 'lyr')
             self.f_d["g"]["b"].grid(ipady=12*self.c*(self.cur["q"]+self.cur["c"]), ipadx=8*self.c*(self.cur['lyr']+1))
@@ -348,8 +340,7 @@ class App(tk.Frame):
                             if self.i_b[k].cstm and self.i_b[k].ct == "mtrx" and cd.search(self.i_b[k].c, line) != "":
                                 mtrx = []
                                 for n in range(len(self.i_b[k].dict["mtrx"])):
-                                    v = str(i+n+1)+".0"
-                                    lst = []
+                                    lst, v = [], str(i+n+1)+".0"
                                     for m in range(len(self.i_b[k].dict["mtrx"])):
                                         if m == 0:
                                             ent = cd.get(cd.search("[", v), cd.search("j", v)+"+1c").strip("[")
@@ -357,8 +348,7 @@ class App(tk.Frame):
                                             ent = cd.get(cd.search(" ", v)+"+1c", cd.search("]", v)).strip("]")
                                         else:
                                             ent = cd.get(cd.search(" ", v)+"+1c", cd.search("j", v)+"+1c")
-                                        lst += [complex(ent)]
-                                        v = cd.search("j", v)
+                                        lst, v = lst + [complex(ent)], cd.search("j", v)
                                     mtrx += [lst]
                                 self.i_b[k].dict["mtrx"] = np.array(mtrx)
                                 self.i_b[k].dict["def"] = "\n// pragma custom_gate_matrix {}\n// {}\n\n".\
@@ -393,8 +383,7 @@ class App(tk.Frame):
                             new.drag_end(self.find(line))
                             if g.dict["prm"]:
                                 new.c = g.dict["c"]+cd.get(opn, cd.search(")", line) + "+1c")
-                                new.widget["text"] = g.k[0:g.k.index("(")] + \
-                                    cd.get(opn, cd.search(")", line)+"+1c")
+                                new.widget["text"] = g.k[0:g.k.index("(")] + cd.get(opn, cd.search(")", line)+"+1c")
                             if len(new.r) != 0:
                                 new.r[0].last_s = new.s
                                 if g == self.i_b["READ"]:
@@ -613,10 +602,10 @@ class App(tk.Frame):
                         self.d['w'].pop(t+str(self.cur[t]))
                     self.d['s'].pop("{}{}:{}".format(t, self.cur[t], i))
                 else:
-                    if i < self.cur['q']:
-                        self.d['s'].pop("{}{}:{}".format(t, i, self.cur[t]))
-                    else:
-                        self.d['s'].pop("{}{}:{}".format(t, i-self.cur['q'], self.cur[t]))
+                    w = "q"
+                    if i >= self.cur['q']:
+                        w, i = "c", i-self.cur['q']
+                    self.d['s'].pop("{}{}:{}".format(w, i, self.cur[t]))
         self.rewrite_code()
 
 

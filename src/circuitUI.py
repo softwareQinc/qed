@@ -30,11 +30,17 @@ class ScrollFrame(tk.Frame):  # allows both scrollbars, used as the main frame t
 
 class Wire:  # Create class for all wires created
     def __init__(self, frame, row, type):
+        self.row = row
         self.label = tk.Label(frame, text="{1}  {0}".format(str(row), type))  # create label
         if type == "c":  # classic protocol
-            self.wire, row = tk.Label(frame, text="_ " * 500000), row + frame.a.cur["q"]  # create wire, overwrite row
+            self.wire, row = tk.Label(frame, text="_ " * 500000), row + frame.a.cur["q"]  # create wire, write row
+            # CONSIDER MAKING WIRE INTO A CANVAS W ATTACHED WIRE TO ALLOW FOR LOWER/LIFT ABILITY
         if type == "q":  # quantum protocol
             self.wire = tk.Frame(frame, background="dark grey")  # create and place the wire itself
+        self.del_button = tk.Button(frame, command=lambda: App.delete_element(frame.a, type, row), text="-")  # del
+        self.add_button = tk.Button(frame, command=lambda: App.add_element(frame.a, type, row), text="+")  # add
+        self.add_button.place(x=13*frame.a.c, y=(20*row+41)*frame.a.c)
+        self.del_button.place(x=frame.a.c, y=(20*row+31)*frame.a.c)
         self.label.place(x=5*frame.a.c, y=(20*row+31)*frame.a.c)
         self.wire.place(x=13*frame.a.c, y=4*(5*row+8)*frame.a.c, w=1000000, h=2*frame.a.c)
 
@@ -55,13 +61,13 @@ class Spot:  # Create class for creating spots
 
 class Obj:  # Create a class for creating items (gates, detectors, and connectors)
     def __init__(self, frame, key, gate_dict, type, spot, rels, rel_no, custom, custom_type):
-        self.f, self.k, self.dict, self.t, self.s, self.r, self.r_no, self.cstm, self.ct = \
+        self.f, self.k, self.d, self.t, self.s, self.r, self.r_no, self.cstm, self.ct = \
             frame, key, gate_dict, type, spot, rels, rel_no, custom, custom_type  # save input vals
         self.c, self.last_s, self.lnks, self.undragged = gate_dict["c"], spot, [], True  # save non-input key values
         if type in ["Rec", "Read"]:
             self.widget = tk.Label(frame, text=self.k, relief="ridge", borderwidth=5)  # build the label
         else:
-            self.widget = tk.Label(frame, text=self.k, background=self.dict["bg"], relief="raised")  # build the label
+            self.widget = tk.Label(frame, text=self.k, background=self.d["bg"], relief="raised")  # build the label
         self.widget.place(x=spot.x[0], y=spot.y[0], h=12 * self.f.a.c, w=12 * self.f.a.c)  # standard
         if type in ["Target", "Rec", "Read"]:  # other placements
             self.widget.place(h=8*self.f.a.c)  # adjust placement for reader
@@ -74,7 +80,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
             frame.a.g_to_c = True
             event.widget._drag_start_x, event.widget._drag_start_y, self.last_s = event.x, event.y, self.s  # drag data
             if self.undragged and len(self.r) == 0:
-                Obj(self.f, self.k, self.dict, self.t, self.s, [], self.r_no, self.cstm, self.ct)
+                Obj(self.f, self.k, self.d, self.t, self.s, [], self.r_no, self.cstm, self.ct)
         self.widget.bind("<Button-1>", drag_start)  # clicking the mouse begins dragging
 
         def on_drag_motion(event):
@@ -85,10 +91,9 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
         self.widget.bind("<Double-Button-1>", lambda x: self.delete())  # double-clicking deletes the widget
 
     def drag_end(self, event):
-        t = "q"
+        t, row, col = "q", 0, 0
         if self.t == "Rec":
             t = "c"
-        row = col = 0
         while row < self.f.a.cur[t] and col < self.f.a.cur["lyr"]:
             if not self.f.a.g_to_c:
                 sel_y = 4 * (5 * event + 8) * self.f.a.c
@@ -140,8 +145,8 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                             if row < self.r[-1].s.row:
                                 self.lnks[0].place(y=s.y[0] + 12 * self.f.a.c)
                             if self.r_no > 1:
-                                nw = Obj(self.f, self.k, self.dict, "2nd", s, self.r+[self],
-                                         self.r_no-1, self.cstm, self.ct)
+                                nw = Obj(self.f, self.k, self.d, "2nd", s, self.r+[self], self.r_no-1,
+                                         self.cstm, self.ct)
                                 for obj in self.r:
                                     obj.r += [nw]
                                 self.r += [nw]
@@ -162,15 +167,15 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                         for i in range(s.col, self.f.a.cur["lyr"]):
                             self.f.a.d['s']["{}{}:{}".format(t, s.row, i)].full = True
                         gate_t = "Rec"
-                    self.r += [Obj(self.f, self.k, self.dict, gate_t, s, self.r+[self],
+                    self.r += [Obj(self.f, self.k, self.d, gate_t, s, self.r+[self],
                                    self.r_no-1, self.cstm, self.ct)]
-                if self.dict["prm"] and self.f.a.g_to_c and self.c == self.dict["c"]:
-                    ent = tk.Entry(self.f, textvariable=tk.StringVar(self.f, value="θ"), bg=self.dict["bg"])
+                if self.d["prm"] and self.f.a.g_to_c and self.c == self.d["c"]:
+                    ent = tk.Entry(self.f, textvariable=tk.StringVar(self.f, value="θ"), bg=self.d["bg"])
                     ent.place(x=s.x[0] + self.f.a.c, y=s.y[0] + 4 * self.f.a.c, w=10 * self.f.a.c)
 
                     def get_param(entry):
                         ent_string = "("+entry.get()+")"
-                        self.c, self.widget["text"] = self.dict["c"]+ent_string, self.k[0:self.k.index("(")]+ent_string
+                        self.c, self.widget["text"] = self.d["c"]+ent_string, self.k[0:self.k.index("(")]+ent_string
                         self.f.a.rewrite_code()
                         entry.destroy()
                     ent.bind('<Return>', lambda x: get_param(ent))
@@ -180,8 +185,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
             else:
                 col += 1
                 if col == self.f.a.cur["lyr"]:
-                    row += 1
-                    col = 0
+                    row, col = row + 1, 0
         self.widget.place(x=self.last_s.x[0], y=self.last_s.y[0])  # standard placement for the returnable
         if self.undragged and not (self.t in ["Target", "Rec", "2nd"]):
             self.widget.destroy()  # destroy if it's the first drag to avoid too many gates
@@ -229,8 +233,8 @@ class App(tk.Frame):
             self.f_d[frame]["f"].a = self
             self.f_d[frame]["f"].place(relheight=1.0, relwidth=0.8)
             self.f_d[frame]["b"] = tk.Frame(self.f_d[frame]["f"])  # b = box
-        self.f_d["c"]["f"].place(x=round(0.8 * a.winfo_screenwidth()))
-        self.f_d["c"]["b"].grid(ipady=round(0.5 * a.winfo_screenheight()), ipadx=round(0.1 * a.winfo_screenwidth()))
+        self.f_d["c"]["f"].place(x=round(0.8*a.winfo_screenwidth()))
+        self.f_d["c"]["b"].grid(ipady=round(0.5*a.winfo_screenheight()), ipadx=round(0.1*a.winfo_screenwidth()))
         self.code, self.bnk, self.g_to_c = tk.Text(self.f_d["c"]["f"], background="dark grey"), \
             tk.LabelFrame(self.f_d["g"]["f"], text="Item Bank"), True
         self.code.bind("<Key>", self.code_to_grid)
@@ -251,36 +255,27 @@ class App(tk.Frame):
         custom_submenu, add_submenu, del_submenu = tk.Menu(edit_menu), tk.Menu(edit_menu), tk.Menu(edit_menu)  # submenu
         edit_menu.add_command(label="Copy Code", command=self.copy_code)
         edit_menu.add_cascade(label="Custom Gate", menu=custom_submenu)
-        edit_menu.add_cascade(label="Adding", menu=add_submenu)
-        edit_menu.add_cascade(label="Deleting", menu=del_submenu)
         custom_submenu.add_command(label="Custom Matrix Gate", command=self.custom_mtrx)
         custom_submenu.add_command(label="Grouped Gate", command=self.grouped)
-        add_submenu.add_command(label="Add Qubit", command=lambda: self.add_element("q"))
-        add_submenu.add_command(label="Add Classic Bit", command=lambda: self.add_element("c"))
-        del_submenu.add_command(label="Delete Qubit", command=lambda: self.delete_element("q"))
-        del_submenu.add_command(label="Delete Classic Bit", command=lambda: self.delete_element("c"))
-        self.i_b = {}
-        x = y = rn = 0
+        self.i_b, x, y, rn = {}, 0, 0, 0
         for dct in self.d['i']:
             if dct != 'Gate':
                 rn = 1
                 if dct == 'Read':
                     x, y = 0, 1
             for k in self.d['i'][dct]:
-                self.i_b[k] = Obj(self.f_d["g"]["f"], k, self.d['i'][dct][k], dct, Spot(y, x, "", self), [], rn, False,
-                                  None)
-                x += 1
+                self.i_b[k], x = Obj(self.f_d["g"]["f"], k, self.d['i'][dct][k], dct, Spot(y, x, "", self), [], rn,
+                                     False, None), x+1
         self.rewrite_code()
 
     def rewrite_code(self):  # simplify the code writing for the semicolons and commas
-        c = 'OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[{}];\ncreg c[{}];\n\n'.format(str(self.cur['q']),
-                                                                                        str(self.cur['c']))
+        c = 'OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[{}];\ncreg c[{}];\n\n'.\
+            format(str(self.cur['q']), str(self.cur['c']))
         if self.g_to_c:
-            final_layer = 0
             for g in self.i_b:
                 if self.i_b[g].cstm:
-                    c += self.i_b[g].dict["def"]
-            col = row = 0
+                    c += self.i_b[g].d["def"]
+            col = row = final_layer = 0
             while col < self.cur['lyr'] and row < self.cur["q"]:
                 obj = self.d['s']["{}{}:{}".format("q", row, col)].obj
                 if obj is not None and obj.s.full:  # only add if filled
@@ -289,7 +284,7 @@ class App(tk.Frame):
                         c += "\nmeasure q[{}] -> c[{}];".format(str(row), obj.r[0].s.row)
                     if obj.t == "Gate" or (obj.t in ["1st", "Ctrl"] and obj.s != obj.r[-1].s):
                         start_text = "\n{} "
-                        if obj.cstm and obj.ct == "mtrx":
+                        if obj.ct == "mtrx":
                             start_text = "\n// pragma custom_gate_action {} "
                         c += start_text.format(obj.c)
                         for item in ([obj] + obj.r):
@@ -299,35 +294,33 @@ class App(tk.Frame):
                             c += location_text.format(str(item.s.row))
                 col += 1
                 if col == self.cur["lyr"]:
-                    row += 1
-                    col = 0
+                    row, col = row + 1, 0
             self.code.delete(1.0, tk.END)
             self.code.insert(1.0, c)
             if final_layer >= self.cur['lyr'] - 1:
-                App.add_element(self, 'lyr')
+                App.add_element(self, 'lyr', None)
             elif final_layer + 1 < self.init['lyr'] < self.cur['lyr']:
                 for i in range(final_layer+1, self.cur['lyr']):
-                    App.delete_element(self, 'lyr')
-            self.f_d["g"]["b"].grid(ipady=12*self.c*(self.cur["q"]+self.cur["c"]), ipadx=8*self.c*(self.cur['lyr']+1))
+                    App.delete_element(self, 'lyr', None)
+            self.f_d["g"]["b"].grid(ipady=12*self.c*(self.cur["q"]+self.cur["c"]+1), ipadx=8*self.c*(self.cur['lyr']+1))
 
     def find(self, start):
         if self.code.get(self.code.search("[", start) + "+1c", self.code.search("]", start)) is not None:
             return int(self.code.get(self.code.search("[", start) + "+1c", self.code.search("]", start)))
 
     def code_to_grid(self, event):  # when enter is clicked, modify the visual simulation to match
-        cd = self.code
+        cd, self.g_to_c = self.code, False
         if event.widget.search("INVALID FORMATTING\n", 1.0) == "1.0":
             event.widget.delete('1.0', '1.0+' + str(len("INVALID FORMATTING\n")) + "c")
-        self.g_to_c = False
         try:
             for wire_type in ["q", "c"]:  # correct wire counts
                 count_find = str(cd.search(wire_type + "reg", '1.0'))
                 if self.cur[wire_type] > self.find(count_find) >= self.init[wire_type]:
                     for i in range(self.find(count_find), self.cur[wire_type] + 1):
-                        self.delete_element(wire_type)
+                        self.delete_element(wire_type, i)
                 elif self.cur[wire_type] < self.find(count_find):
                     for i in range(self.cur[wire_type] + 1, self.find(count_find) + 1):
-                        self.add_element(wire_type)
+                        self.add_element(wire_type, i-2)
             for k in self.d['s']:  # delete all current widgets
                 if self.d['s'][k].obj is not None:
                     self.d['s'][k].obj.delete()
@@ -339,28 +332,27 @@ class App(tk.Frame):
                         for k in self.i_b:
                             if self.i_b[k].cstm and self.i_b[k].ct == "mtrx" and cd.search(self.i_b[k].c, line) != "":
                                 mtrx = []
-                                for n in range(len(self.i_b[k].dict["mtrx"])):
+                                for n in range(len(self.i_b[k].d["mtrx"])):
                                     lst, v = [], str(i+n+1)+".0"
-                                    for m in range(len(self.i_b[k].dict["mtrx"])):
+                                    for m in range(len(self.i_b[k].d["mtrx"])):
                                         if m == 0:
                                             ent = cd.get(cd.search("[", v), cd.search("j", v)+"+1c").strip("[")
-                                        elif m == len(self.i_b[k].dict["mtrx"]) - 1:
+                                        elif m == len(self.i_b[k].d["mtrx"]) - 1:
                                             ent = cd.get(cd.search(" ", v)+"+1c", cd.search("]", v)).strip("]")
                                         else:
                                             ent = cd.get(cd.search(" ", v)+"+1c", cd.search("j", v)+"+1c")
                                         lst, v = lst + [complex(ent)], cd.search("j", v)
                                     mtrx += [lst]
-                                self.i_b[k].dict["mtrx"] = np.array(mtrx)
-                                self.i_b[k].dict["def"] = "\n// pragma custom_gate_matrix {}\n// {}\n\n".\
-                                    format(k, str(np.array(mtrx)).replace('\n', '\n// '))
+                                self.i_b[k].d["mtrx"], self.i_b[k].d["def"] = np.array(mtrx), \
+                                    "\n// pragma custom_gate_matrix {}\n// {}\n\n".format(k, str(np.array(mtrx)).
+                                                                                          replace('\n', '\n// '))
                     elif cd.search("gate", line, str(i+1)+".0") != "":
                         for k in self.i_b:
                             if self.i_b[k].cstm and self.i_b[k].ct == "group" and cd.search(self.i_b[k].c, line) != "":
-                                self.i_b[k].dict["def"] = cd.get(line, cd.search("}", line)+"+1c") + "\n"
+                                self.i_b[k].d["def"] = cd.get(line, cd.search("}", line)+"+1c") + "\n"
                 else:
-                    opn = cd.search("(", line)
+                    opn, g = cd.search("(", line), None
                     if cd.search(";", str(i)+".0", str(i+1)+".0") != "":
-                        g = None
                         if cd.search("measure", line, str(i + 1) + ".0") != "":
                             g = self.i_b["READ"]
                         elif cd.search("//", line) != "":
@@ -372,18 +364,18 @@ class App(tk.Frame):
                                 it = self.i_b[k]
                                 if (it.t == "Gate" or (it.t in ["Ctrl", "1st"] and
                                                        ("," == cd.get(cd.search("]", line)+"+1c")))) and \
-                                   (it.dict["c"] == (cd.get(line, cd.search(" ", line))) or
-                                    (it.dict["prm"] and opn != "" and it.dict["c"] == (cd.get(line, opn)))) and \
+                                   (it.d["c"] == (cd.get(line, cd.search(" ", line))) or
+                                    (it.d["prm"] and opn != "" and it.d["c"] == (cd.get(line, opn)))) and \
                                         (len(cd.get(cd.search("[", line)+"+1c", cd.search("]", line))) != 0):
                                     g = it
                                     break
                         if g is not None:
-                            new = Obj(g.f, g.k, g.dict, g.t, g.s, [], g.r_no, g.cstm, g.ct)
+                            new = Obj(g.f, g.k, g.d, g.t, g.s, [], g.r_no, g.cstm, g.ct)
                             new.undragged = False
                             new.drag_end(self.find(line))
-                            if g.dict["prm"]:
-                                new.c = g.dict["c"]+cd.get(opn, cd.search(")", line) + "+1c")
-                                new.widget["text"] = g.k[0:g.k.index("(")] + cd.get(opn, cd.search(")", line)+"+1c")
+                            if g.d["prm"]:
+                                new.c, new.widget["text"] = g.d["c"]+cd.get(opn, cd.search(")", line) + "+1c"), \
+                                    g.k[0:g.k.index("(")] + cd.get(opn, cd.search(")", line)+"+1c")
                             if len(new.r) != 0:
                                 new.r[0].last_s = new.s
                                 if g == self.i_b["READ"]:
@@ -430,7 +422,7 @@ class App(tk.Frame):
                     if self.i_b[val].t == "Gate":
                         txt.insert(tk.END, val+" ()\n")
                     elif self.i_b[val].cstm:
-                        txt.insert(tk.END, val+" ()"+" ()"*self.i_b[val].dict["N"]+"\n")
+                        txt.insert(tk.END, val+" ()"+" ()"*self.i_b[val].d["N"]+"\n")
                     else:
                         txt.insert(tk.END, val+" () ()\n")
 
@@ -455,7 +447,7 @@ class App(tk.Frame):
                                 break
                     dta += "}\n"
                     self.init["lyr"] += 1
-                    self.add_element('lyr')
+                    self.add_element('lyr', None)
                     self.bnk.place(w=4*self.c*(4*self.init["lyr"]+1))
                     gate_type = "Gate"
                     if q_no != 1:
@@ -506,7 +498,7 @@ class App(tk.Frame):
                 if warn is not None:
                     warn.destroy()
                 self.init["lyr"] += 1
-                self.add_element("lyr")
+                self.add_element("lyr", None)
                 self.bnk.place(w=4*self.c*(4*self.init["lyr"]+1))
                 vs["nm"], t = e["nm"].get(), "Gate"  # save name and default gate type
                 if v["n"] != 1:
@@ -538,41 +530,61 @@ class App(tk.Frame):
                 tk.Label(f, text="Input must be in format '{Real}+{Im}j'").place(x=self.c * 4, y=self.c * 14)
         tk.Button(fr, text="Create", command=lambda: new_mtrx(fr, ets, vs)).place(x=self.c * 30, y=self.c * 2)
 
-    def add_element(self, t):
-        self.cur[t] += 1
+    def add_element(self, t, row):
         rnge = self.cur['q'] + self.cur["c"]
         if t in ["q", "c"]:
             rnge = self.cur['lyr']
         for i in range(rnge):
             if t in ["q", "c"]:
-                if t == "q":
-                    self.d['s']["{}{}:{}".format(t, self.cur[t] - 1, i)] = Spot(self.cur[t]-1, i, t, self)
-                    for n in range(self.cur["c"]):
-                        if i == 0:
-                            self.d['w']["c" + str(n)].wire.place(y=4 * self.c * (5 * (n + self.cur[t]) + 8))
-                            self.d['w']["c" + str(n)].label.place(y=4 * self.c * (5 * (n + self.cur[t]) + 8))
-                        s = self.d['s']["{}{}:{}".format("c", n, i)]
-                        s.y = range(self.c*(27+20*(n + self.cur[t])), self.c*(27+20*(n + self.cur[t] + 1)))
-                        if s.full:
-                            for v in range(len(s.obj.lnks)):
-                                s.obj.lnks[v].place(y=s.obj.r[0].s.y[0]+10*self.c, h=s.y[0]-s.obj.r[0].s.y[0]-8*self.c)
-                            s.obj.widget.place(y=s.y[0] + self.c * 2)
-                else:
-                    self.d['s']["{}{}:{}".format(t, self.cur[t] - 1, i)] = Spot(self.cur['q']+self.cur[t]-1, i, t, self)
+                new_row = row+1
+                if t == "c":
+                    new_row = row+1-self.cur["q"]
+                reverse_rows = list(range(row+1, self.cur["q"]+self.cur["c"]))
+                reverse_rows.reverse()
+                for n in reverse_rows:
+                    w_t = "q"
+                    cur_row = n
+                    if n >= self.cur["q"]:
+                        w_t = "c"
+                        cur_row = n-self.cur["q"]
+                    if i == 0:
+                        self.d['w'][w_t+str(cur_row)].wire.place(y=4*self.c*(5*(n+1)+8))
+                        self.d['w'][w_t+str(cur_row)].label.place(y=self.c*(20*(n+1)+31))
+                        self.d['w'][w_t+str(cur_row)].add_button.place(y=(20*(n+1)+41)*self.c)
+                        self.d['w'][w_t+str(cur_row)].del_button.place(y=(20*(n+1)+31)*self.c)
+                        self.d['w'][w_t+str(cur_row)].add_button["command"] = lambda: App.add_element(self, w_t, n+1)
+                        self.d['w'][w_t+str(cur_row)].del_button["command"] = lambda: App.delete_element(self, w_t, n+1)
+                        if w_t == t:
+                            self.d['w'][w_t+str(cur_row+1)] = self.d['w'][w_t+str(cur_row)]
+                            self.d['w'][w_t+str(cur_row+1)].label["text"] = "{1}  {0}".format(str(cur_row+1), w_t)
+                    s = self.d['s']["{}{}:{}".format(w_t, cur_row, i)]
+                    s.y = range(self.c*(27+20*(cur_row+1)), self.c*(27+20*(cur_row+2)))
+                    if w_t == t:
+                        s.k = "{}{}:{}".format(w_t, cur_row+1, i)
+                        s.row = cur_row + 1
+                        self.d['s'][s.k] = s
+                    if s.full and s.obj is not None:
+                        for v in range(len(s.obj.lnks)):
+                            s.obj.lnks[v].place(y=s.obj.r[0].s.y[0]+10*self.c, h=s.y[0]-s.obj.r[0].s.y[0]-8*self.c)
+                        s.obj.widget.place(y=s.y[0])
+                        if s.obj.t in ["Target", "Rec"]:
+                            s.obj.widget.place(y=s.y[0]+2*self.c)
                 if i == 0:
-                    self.d['w'][t+str(self.cur[t]-1)] = Wire(self.f_d["g"]["f"], self.cur[t]-1, t)
+                    self.d['w'][t+str(new_row)] = Wire(self.f_d["g"]["f"], new_row, t)
+                self.d['s']["{}{}:{}".format(t, new_row, i)] = Spot(new_row, i, t, self)
             else:
                 w = "q"
                 if i >= self.cur["q"]:
                     i -= self.cur["q"]
                     w = "c"
-                self.d['s']["{}{}:{}".format(w, i, self.cur[t]-1)] = Spot(i, self.cur[t]-1, w, self)
-                if self.d['s']["{}{}:{}".format(w, i, self.cur[t]-2)].obj is not None and \
-                        self.d['s']["{}{}:{}".format(w, i, self.cur[t]-2)].obj.t == "Read":
-                    self.d['s']["{}{}:{}".format(w, i, self.cur[t]-1)].full = True
+                self.d['s']["{}{}:{}".format(w, i, self.cur[t])] = Spot(i, self.cur[t], w, self)
+                if self.d['s']["{}{}:{}".format(w, i, self.cur[t]-1)].obj is not None and \
+                        self.d['s']["{}{}:{}".format(w, i, self.cur[t]-1)].obj.t == "Read":
+                    self.d['s']["{}{}:{}".format(w, i, self.cur[t])].full = True
+        self.cur[t] += 1
         self.rewrite_code()
 
-    def delete_element(self, t):
+    def delete_element(self, t, row):
         if self.cur[t] > self.init[t]:
             rnge = max(self.cur['q'], self.cur["c"])
             if t in ["q", "c"]:
@@ -582,30 +594,57 @@ class App(tk.Frame):
                     if (len(t) > 1 and i < self.cur[p] and self.d['s']['{}{}:{}'.format(p, i, self.cur[t]-1)].obj
                        is not None) or (len(t) < 3 and self.d['s']["{}{}:{}".format(t, self.cur[t]-1, i)].full):
                         return
-            self.cur[t] -= 1
-            for i in range(rnge):
-                if t in ["q", "c"]:
-                    if t == "q":
-                        for n in range(self.cur["c"]):
-                            self.d['w']["c" + str(n)].wire.place(y=4 * self.c * (5 * (n + self.cur['q']) + 8))
-                            self.d['w']["c" + str(n)].label.place(y=self.c * (20 * (n + self.cur['q']) + 31))
-                            s = self.d['s']["{}{}:{}".format("c", n, i)]
-                            s.y = range(self.c*(27+20*(n + self.cur[t])), self.c*(27+20*(n + self.cur[t] + 1)))
-                            if s.obj is not None:
-                                for v in range(len(s.obj.lnks)):
-                                    s.obj.lnks[v].place(y=s.obj.r[0].s.y[0]+10*self.c,
-                                                        h=s.y[0]-s.obj.r[0].s.y[0]-8*self.c)
-                                s.obj.widget.place(y=s.y[0] + self.c * 2)
+        else:
+            return
+        self.cur[t] -= 1
+        for i in range(rnge):
+            if t in ["q", "c"]:
+                del_row, row_max = row, self.cur["q"] + self.cur["c"]
+                if t == "c":
+                    del_row, row_max = row - self.cur["q"], row_max+1
+                if i == 0:
+                    self.d['w'][t+str(del_row)].wire.destroy()
+                    self.d['w'][t+str(del_row)].label.destroy()
+                    self.d['w'][t+str(del_row)].add_button.destroy()
+                    self.d['w'][t+str(del_row)].del_button.destroy()
+                    self.d['w'].pop(t+str(del_row))
+                self.d['s'].pop("{}{}:{}".format(t, del_row, i))
+                for n in range(row+1, self.cur["q"] + self.cur["c"]+1):
+                    w_t = "q"
+                    cur_row = n
+                    if n > self.cur['q'] or (t == "c" and n == self.cur["q"]):
+                        w_t = "c"
+                        cur_row = n - self.cur["q"]
+                        if t == "q":
+                            cur_row -= 1
                     if i == 0:
-                        self.d['w'][t+str(self.cur[t])].wire.destroy()
-                        self.d['w'][t+str(self.cur[t])].label.destroy()
-                        self.d['w'].pop(t+str(self.cur[t]))
-                    self.d['s'].pop("{}{}:{}".format(t, self.cur[t], i))
-                else:
-                    w = "q"
-                    if i >= self.cur['q']:
-                        w, i = "c", i-self.cur['q']
-                    self.d['s'].pop("{}{}:{}".format(w, i, self.cur[t]))
+                        self.d['w'][w_t+str(cur_row)].wire.place(y=4*self.c*(5*(n-1)+8))
+                        self.d['w'][w_t+str(cur_row)].label.place(y=self.c*(20*(n-1)+31))
+                        self.d['w'][w_t+str(cur_row)].add_button.place(y=(20*(n-1)+41)*self.c)
+                        self.d['w'][w_t+str(cur_row)].del_button.place(y=(20*(n-1)+31)*self.c)
+                        self.d['w'][w_t+str(cur_row)].add_button["command"] = lambda: App.add_element(self, w_t, n-1)
+                        self.d['w'][w_t+str(cur_row)].del_button["command"] = lambda: App.delete_element(self, w_t, n-1)
+                        if w_t == t:
+                            self.d['w'][w_t+str(cur_row-1)] = self.d['w'][w_t+str(cur_row)]
+                            self.d['w'].pop(w_t + str(cur_row))
+                            self.d['w'][w_t+str(cur_row-1)].label["text"] = "{1}  {0}".format(str(cur_row-1), w_t)
+                    s = self.d['s']["{}{}:{}".format(w_t, cur_row, i)]
+                    s.y = range(self.c*(27+20*(row-1)), self.c*(27+20*row))
+                    if w_t == t:
+                        s.k = "{}{}:{}".format(w_t, cur_row-1, i)
+                        s.row = cur_row-1
+                        self.d['s'][s.k] = s
+                    if s.full and s.obj is not None:
+                        for v in range(len(s.obj.lnks)):
+                            s.obj.lnks[v].place(y=s.obj.r[0].s.y[0]+10*self.c, h=s.y[0]-s.obj.r[0].s.y[0]-8*self.c)
+                        s.obj.widget.place(y=s.y[0])
+                        if s.obj.t in ["Target", "Rec"]:
+                            s.obj.widget.place(y=s.y[0]+2*self.c)
+            else:
+                w = "q"
+                if i >= self.cur['q']:
+                    w, i = "c", i-self.cur['q']
+                self.d['s'].pop("{}{}:{}".format(w, i, self.cur[t]))
         self.rewrite_code()
 
 

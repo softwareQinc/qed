@@ -220,7 +220,7 @@ class App(tk.Frame):
     def __init__(self, a, menu):
         self.c = round(a.winfo_screenheight() / 160)  # standard separations to configure the app
         self.d = {'s': {}, 'w': {}, 'i': jd}  # all dicts, for spots, wires, and items
-        self.cur = {'q': 3, 'c': 2, 'lyr': len(self.d['i']['Gate'])+len(self.d['i']['1st'])+len(self.d['i']['Ctrl'])}
+        self.cur = {'q': 1, 'c': 1, 'lyr': len(self.d['i']['Gate'])+len(self.d['i']['1st'])+len(self.d['i']['Ctrl'])}
         self.init = {'q': self.cur['q'], 'c': self.cur['c'], 'lyr': self.cur['lyr']}  # initial counts
         tk.Frame.__init__(self, a)  # create app
         a.title("Wires and Gates Simulation")  # set the title
@@ -549,7 +549,7 @@ class App(tk.Frame):
                             self.d['w'][w_t+str(cur_row+1)] = self.d['w'][w_t+str(cur_row)]
                             self.d['w'][w_t+str(cur_row+1)].label["text"] = "{1}  {0}".format(str(cur_row+1), w_t)
                     s = self.d['s']["{}{}:{}".format(w_t, cur_row, i)]
-                    s.y = range(self.c*(27+20*(cur_row+1)), self.c*(27+20*(cur_row+2)))
+                    s.y = range(self.c*(27+20*(n+1)), self.c*(27+20*(n+2)))
                     if w_t == t:
                         s.k = "{}{}:{}".format(w_t, cur_row+1, i)
                         self.d['s'][s.k] = s
@@ -574,6 +574,8 @@ class App(tk.Frame):
         self.rewrite_code()
 
     def delete(self, t, row):
+        for k in self.d['s']:
+            print(k, self.d['s'][k].y)
         if self.cur[t] > self.init[t]:
             rnge = max(self.cur['q'], self.cur["c"])
             if t in ["q", "c"]:
@@ -616,10 +618,11 @@ class App(tk.Frame):
                             self.d['w'].pop(w_t + str(cur_row))
                             self.d['w'][w_t+str(cur_row-1)].label["text"] = "{1}  {0}".format(str(cur_row-1), w_t)
                     s = self.d['s']["{}{}:{}".format(w_t, cur_row, i)]
-                    s.y = range(self.c*(27+20*(row-1)), self.c*(27+20*row))
+                    s.y = range(self.c*(27+20*(n-1)), self.c*(27+20*n))
                     if w_t == t:
                         s.k = "{}{}:{}".format(w_t, cur_row-1, i)
                         self.d['s'][s.k] = s
+                        self.d['s'].pop("{}{}:{}".format(w_t, cur_row, i))
                     if s.full and s.obj is not None:
                         for v in range(len(s.obj.lnks)):
                             s.obj.lnks[v].place(y=s.obj.r[0].s.y[0]+10*self.c, h=s.y[0]-s.obj.r[0].s.y[0]-8*self.c)

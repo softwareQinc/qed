@@ -575,8 +575,6 @@ class App(tk.Frame):  # build the actual app
                     self.d['s'][ind(w, i, self.cur[t])].full = True
         self.cur[t] += 1
         self.rewrite_code()
-        for key in self.d['s']:
-            print(key, self.d['s'][key].y)
 
     def delete(self, t, row):
         if self.cur[t] <= self.init[t]:
@@ -635,8 +633,6 @@ class App(tk.Frame):  # build the actual app
                     w, i = "c", i-self.cur['q']
                 self.d['s'].pop(ind(w, i, self.cur[t]))
         self.rewrite_code()
-        for key in self.d['s']:
-            print(key, self.d['s'][key].y)
 
 
 if __name__ == "__main__":

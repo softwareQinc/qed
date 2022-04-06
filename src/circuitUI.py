@@ -31,16 +31,16 @@ class Wire:  # Create class for all wires created
     def __init__(self, fr, row, type):
         self.label = tk.Label(fr, text="{1}  {0}".format(str(row), type))  # create label
         if type == "c":  # classic protocol
-            self.wire, row = tk.Label(fr, text="_ " * 500000), row + fr.a.cur["q"]  # create wire, write row
-            # CONSIDER MAKING WIRE INTO A CANVAS W ATTACHED WIRE TO ALLOW FOR LOWER/LIFT ABILITY
+            self.wire, row = tk.Label(fr.a.wire_canvas, text="_ " * 500000), row + fr.a.cur["q"]  # create wire
         if type == "q":  # quantum protocol
-            self.wire = tk.Frame(fr, background="dark grey")  # create and place the wire itself
+            self.wire = tk.Frame(fr.a.wire_canvas, background="dark grey")  # create and place the wire itself
         self.del_bttn, self.add_bttn = tk.Button(fr, command=lambda: App.delete(fr.a, type, row), text="-"), \
             tk.Button(fr, command=lambda: App.add(fr.a, type, row), text="+")  # add and delete wire buttons
         self.add_bttn.place(x=13 * fr.a.c, y=(20 * row + 41) * fr.a.c)
         self.del_bttn.place(x=fr.a.c, y=(20 * row + 31) * fr.a.c)
         self.label.place(x=5*fr.a.c, y=(20*row+31)*fr.a.c)
         self.wire.place(x=13*fr.a.c, y=4*(5*row+8)*fr.a.c, w=1000000, h=2*fr.a.c)
+        self.wire.lower()  # lower the wire to avoid accidental covering
 
 
 class Spot:  # Create class for creating spots
@@ -58,10 +58,9 @@ class Spot:  # Create class for creating spots
 
 
 class Obj:  # Create a class for creating items (gates, detectors, and connectors)
-    def __init__(self, frame, key, gate_dict, type, spot, rels, rel_no, custom, custom_type):
-        self.f, self.k, self.d, self.t, self.s, self.r, self.r_no, self.cstm, self.ct = \
-            frame, key, gate_dict, type, spot, rels, rel_no, custom, custom_type  # save input vals
-        self.c, self.last_s, self.lnks, self.undragged = gate_dict["c"], spot, [], True  # save non-input key values
+    def __init__(self, frame, key, g_d, type, spot, rels, rel_no, custom, cstm_type):
+        self.f, self.k, self.d, self.t, self.s, self.r, self.r_no, self.cstm, self.ct, self.c, self.last_s, self.lnks, \
+            self.undragged = frame, key, g_d, type, spot, rels, rel_no, custom, cstm_type, g_d["c"], spot, [], True
         if type in ["Rec", "Read"]:
             self.widget = tk.Label(frame, text=self.k, relief="ridge", borderwidth=5)  # build the label
         else:
@@ -223,8 +222,8 @@ class App(tk.Frame):
         self.cur = {'q': 1, 'c': 1, 'lyr': len(self.d['i']['Gate'])+len(self.d['i']['1st'])+len(self.d['i']['Ctrl'])}
         self.init = {'q': self.cur['q'], 'c': self.cur['c'], 'lyr': self.cur['lyr']}  # initial counts
         tk.Frame.__init__(self, a)  # create app
-        a.title("Wires and Gates Simulation")  # set the title
-        a.geometry(str(a.winfo_screenwidth()) + "x" + str(round(a.winfo_screenheight()*0.9)))  # center the screen
+        a.title("QED")  # set the title
+        a.geometry(str(a.winfo_screenwidth()) + "x" + str(round(a.winfo_screenheight()*0.8)))  # place the screen
         self.f_d = {"g": {}, "c": {}}  # build dictionary for the frames (g = grid, c = code)
         for frame in ["g", "c"]:  # build the frame dictionaries
             self.f_d[frame]["f"] = ScrollFrame(a)  # f = frame
@@ -233,11 +232,13 @@ class App(tk.Frame):
             self.f_d[frame]["b"] = tk.Frame(self.f_d[frame]["f"])  # b = box
         self.f_d["c"]["f"].place(x=round(0.8*a.winfo_screenwidth()))
         self.f_d["c"]["b"].grid(ipady=round(0.5*a.winfo_screenheight()), ipadx=round(0.1*a.winfo_screenwidth()))
+        self.wire_canvas = tk.Canvas(self.f_d["g"]["f"])
+        self.wire_canvas.grid(ipady=12*self.c*(self.cur["q"]+self.cur["c"]+1), ipadx=8*self.c*(self.cur['lyr']+1))
         self.code, self.bnk, self.g_to_c = tk.Text(self.f_d["c"]["f"], background="dark grey"), \
-            tk.LabelFrame(self.f_d["g"]["f"], text="Item Bank"), True
+            tk.LabelFrame(self.wire_canvas, text="Item Bank"), True
         self.code.bind("<Key>", self.code_to_grid)
         self.code.place(x=0, y=0, relwidth=1.0, relheight=1.0)
-        self.bnk.place(x=5 * self.c, h=28 * self.c, w=4 * self.c * (4 * self.cur['lyr'] + 1))
+        self.bnk.place(x=5*self.c, h=28*self.c, w=4*self.c*(4*self.cur['lyr']+1))
         for i in range(max(self.cur['q'], self.cur['c'])):  # all wires
             for n in range(self.cur['lyr']):  # all layers
                 for tp in ['q', 'c']:  # both types
@@ -301,6 +302,7 @@ class App(tk.Frame):
                 for i in range(final_layer+1, self.cur['lyr']):
                     App.delete(self, 'lyr', None)
             self.f_d["g"]["b"].grid(ipady=12*self.c*(self.cur["q"]+self.cur["c"]+1), ipadx=8*self.c*(self.cur['lyr']+1))
+            self.wire_canvas.grid(ipady=12*self.c*(self.cur["q"]+self.cur["c"]+1), ipadx=8*self.c*(self.cur['lyr']+1))
 
     def find(self, start):
         if self.code.get(self.code.search("[", start) + "+1c", self.code.search("]", start)) is not None:
@@ -574,8 +576,6 @@ class App(tk.Frame):
         self.rewrite_code()
 
     def delete(self, t, row):
-        for k in self.d['s']:
-            print(k, self.d['s'][k].y)
         if self.cur[t] > self.init[t]:
             rnge = max(self.cur['q'], self.cur["c"])
             if t in ["q", "c"]:
@@ -590,9 +590,9 @@ class App(tk.Frame):
         self.cur[t] -= 1
         for i in range(rnge):
             if t in ["q", "c"]:
-                del_row, row_max = row, self.cur["q"] + self.cur["c"]
+                del_row = row
                 if t == "c":
-                    del_row, row_max = row - self.cur["q"], row_max+1
+                    del_row = row - self.cur["q"]
                 if i == 0:
                     self.d['w'][t+str(del_row)].wire.destroy()
                     self.d['w'][t+str(del_row)].label.destroy()
@@ -609,10 +609,10 @@ class App(tk.Frame):
                     if i == 0:
                         self.d['w'][w_t+str(cur_row)].wire.place(y=4*self.c*(5*(n-1)+8))
                         self.d['w'][w_t+str(cur_row)].label.place(y=self.c*(20*(n-1)+31))
-                        self.d['w'][w_t+str(cur_row)].add_bttn.place(y=(20 * (n - 1) + 41) * self.c)
-                        self.d['w'][w_t+str(cur_row)].del_bttn.place(y=(20 * (n - 1) + 31) * self.c)
-                        self.d['w'][w_t+str(cur_row)].add_bttn["command"] = lambda: App.add(self, w_t, n - 1)
-                        self.d['w'][w_t+str(cur_row)].del_bttn["command"] = lambda: App.delete(self, w_t, n - 1)
+                        self.d['w'][w_t+str(cur_row)].add_bttn.place(y=(20*(n-1)+41)*self.c)
+                        self.d['w'][w_t+str(cur_row)].del_bttn.place(y=(20*(n-1)+31)*self.c)
+                        self.d['w'][w_t+str(cur_row)].add_bttn["command"] = lambda: App.add(self, w_t, n-1)
+                        self.d['w'][w_t+str(cur_row)].del_bttn["command"] = lambda: App.delete(self, w_t, n-1)
                         if w_t == t:
                             self.d['w'][w_t+str(cur_row-1)] = self.d['w'][w_t+str(cur_row)]
                             self.d['w'].pop(w_t + str(cur_row))

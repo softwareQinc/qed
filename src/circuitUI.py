@@ -7,6 +7,10 @@ import numpy as np
 jd = json.load(open("config.json"))
 
 
+def ind(wire_type, row, col):  # create a default index creator
+    return '{}{}:{}'.format(wire_type, row, col)
+
+
 class ScrollFrame(tk.Frame):  # allows both scrollbars, used as the main frame to hold all widgets
     def __init__(self, parent):
         self.outer, self.a = tk.Frame(parent), None
@@ -36,16 +40,19 @@ class Wire:  # Create class for all wires created
             self.wire = tk.Frame(fr.a.wire_canvas, background="dark grey")  # create and place the wire itself
         self.del_bttn, self.add_bttn = tk.Button(fr, command=lambda: App.delete(fr.a, type, row), text="-"), \
             tk.Button(fr, command=lambda: App.add(fr.a, type, row), text="+")  # add and delete wire buttons
-        self.add_bttn.place(x=13 * fr.a.c, y=(20 * row + 41) * fr.a.c)
-        self.del_bttn.place(x=fr.a.c, y=(20 * row + 31) * fr.a.c)
-        self.label.place(x=5*fr.a.c, y=(20*row+31)*fr.a.c)
-        self.wire.place(x=13*fr.a.c, y=4*(5*row+8)*fr.a.c, w=1000000, h=2*fr.a.c)
+        self.place(fr.a.c, row)
+
+    def place(self, c, new_row):
+        self.add_bttn.place(x=13*c, y=(20*new_row+41)*c)
+        self.del_bttn.place(x=c, y=(20*new_row+31)*c)
+        self.label.place(x=5*c, y=(20*new_row+31)*c)
+        self.wire.place(x=13*c, y=4*(5*new_row+8)*c, w=1000000, h=2*c)
         self.wire.lower()  # lower the wire to avoid accidental covering
 
 
 class Spot:  # Create class for creating spots
     def __init__(self, row, col, spot_type, a):
-        self.k, self.t, self.col, self.row = "{}{}:{}".format(spot_type, row, col), spot_type, col, row  # save ind data
+        self.k, self.t, self.col, self.row = ind(spot_type, row, col), spot_type, col, row  # save ind data
         if spot_type == 'c':
             row = row + a.cur['q']
         self.x, self.y = range(a.c*(17+16*col), a.c*(17+16*(col+1))), range(a.c*(27+20*row), a.c*(27+20*(row+1)))
@@ -55,6 +62,9 @@ class Spot:  # Create class for creating spots
 
     def empty(self):
         self.full, self.obj = False, None
+
+    def place(self, c, new_row):
+        self.y = range(c*(27+20*new_row), c*(27+20*(new_row+1)))
 
 
 class Obj:  # Create a class for creating items (gates, detectors, and connectors)
@@ -99,11 +109,11 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                 continue  # skip over this row as it is invalid
             else:
                 sel_y = self.widget.winfo_y()
-            s, read = self.f.a.d['s']["{}{}:{}".format(t, row, col)], False  # assign spot, and currently not valid read
+            s, read = self.f.a.d['s'][ind(t, row, col)], False  # assign spot, and currently not valid read
             if self.t == "Read":
                 read = True
                 for i in range(col, self.f.a.cur["lyr"]):  # see if the spot is a valid place for a reader
-                    if self.f.a.d['s']["{}{}:{}".format(t, row, i)].full:
+                    if self.f.a.d['s'][ind(t, row, i)].full:
                         read = False
             if ((self.t in ['Rec', '2nd', 'Target'] and col == self.r[0].s.col) or read or self.t in
                ["Gate", "1st", "Ctrl"]) and sel_y in s.y and not s.full:
@@ -119,11 +129,11 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                         if self.t == "Read":  # only for readers with prior placements
                             if self.last_s is not None:
                                 for n in range(self.last_s.col, self.f.a.cur["lyr"]):
-                                    self.f.a.d['s']["{}{}:{}".format(t, self.last_s.row, n)].empty()
+                                    self.f.a.d['s'][ind(t, self.last_s.row, n)].empty()
                                 self.f.a.d['s'][self.r[i].s.k].empty()
                         if self.t in ["Ctrl", "1st"]:  # only for controls and doubles with prior placements
                             for n in range(s.row, self.r[i].s.row + 1):
-                                self.f.a.d['s']["{}{}:{}".format(t, n, self.r[i].s.col)].empty()
+                                self.f.a.d['s'][ind(t, n, self.r[i].s.col)].empty()
                     self.r = []
                 if self.t in ["Target", "2nd", "Rec"]:  # if it is the second, attach and place
                     if self.undragged:
@@ -132,7 +142,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                                        h=abs(self.r[0].s.y[0]-s.y[0])-10*self.f.a.c)
                     if self.t != "Rec":  # control and target changes
                         for i in range(self.r[-1].s.row + 1, s.row):  # keep between empty
-                            self.f.a.d['s']["{}{}:{}".format(t, i, s.col)].full = True
+                            self.f.a.d['s'][ind(t, i, s.col)].full = True
                         if self.t == "Target":
                             self.widget.place(x=s.x[0]+2*self.f.a.c, y=s.y[0]+2*self.f.a.c)
                             if row < self.r[-1].s.row:
@@ -140,10 +150,10 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                         elif self.t == "2nd":
                             self.lnks[0].place(h=abs(self.r[-1].s.y[0]-s.y[0])-12*self.f.a.c)
                             if row < self.r[-1].s.row:
-                                self.lnks[0].place(y=s.y[0] + 12 * self.f.a.c)
+                                self.lnks[0].place(y=s.y[0]+12*self.f.a.c)
                             if self.r_no > 1:
-                                nw = Obj(self.f, self.k, self.d, "2nd", s, self.r+[self], self.r_no-1,
-                                         self.cstm, self.ct)
+                                nw = Obj(self.f, self.k, self.d, "2nd", s, self.r+[self], self.r_no-1, self.cstm,
+                                         self.ct)
                                 for obj in self.r:
                                     obj.r += [nw]
                                 self.r += [nw]
@@ -162,10 +172,9 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                     if self.t == "Read":
                         self.widget.place(y=s.y[0] + 2 * self.f.a.c)
                         for i in range(s.col, self.f.a.cur["lyr"]):
-                            self.f.a.d['s']["{}{}:{}".format(t, s.row, i)].full = True
+                            self.f.a.d['s'][ind(t, s.row, i)].full = True
                         gate_t = "Rec"
-                    self.r += [Obj(self.f, self.k, self.d, gate_t, s, self.r+[self],
-                                   self.r_no-1, self.cstm, self.ct)]
+                    self.r += [Obj(self.f, self.k, self.d, gate_t, s, self.r+[self], self.r_no-1, self.cstm, self.ct)]
                 if self.d["prm"] and self.f.a.g_to_c and self.c == self.d["c"]:
                     ent = tk.Entry(self.f, textvariable=tk.StringVar(self.f, value="θ"), bg=self.d["bg"])
                     ent.place(x=s.x[0] + self.f.a.c, y=s.y[0] + 4 * self.f.a.c, w=10 * self.f.a.c)
@@ -206,16 +215,16 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                         t = "q"
                         if i >= self.f.a.cur["q"]:
                             t, i = "c", i-self.f.a.cur["q"]
-                        self.f.a.d['s']["{}{}:{}".format(t, i, obj.s.col)].empty()
+                        self.f.a.d['s'][ind(t, i, obj.s.col)].empty()
             elif obj.t == "Read":
                 for i in range(obj.s.col, self.f.a.cur["lyr"]):
-                    self.f.a.d['s']["{}{}:{}".format("q", obj.s.row, i)].empty()
+                    self.f.a.d['s'][ind("q", obj.s.row, i)].empty()
             self.f.a.d['s'][obj.s.k].empty()
             obj.widget.destroy()
         self.f.a.rewrite_code()  # rewrite code to match board
 
 
-class App(tk.Frame):
+class App(tk.Frame):  # build the actual app
     def __init__(self, a, menu):
         self.c = round(a.winfo_screenheight() / 160)  # standard separations to configure the app
         self.d = {'s': {}, 'w': {}, 'i': jd}  # all dicts, for spots, wires, and items
@@ -245,14 +254,13 @@ class App(tk.Frame):
                     if i < self.cur[tp]:  # create spots and wires
                         if n == 0:
                             self.d['w'][tp + str(i)] = Wire(self.f_d["g"]["f"], i, tp)
-                        self.d['s']["{}{}:{}".format(tp, i, n)] = Spot(i, n, tp, self)
+                        self.d['s'][ind(tp, i, n)] = Spot(i, n, tp, self)
         file_menu, edit_menu = tk.Menu(menu), tk.Menu(menu)  # create menus
         menu.add_cascade(label="File", menu=file_menu)
         file_menu.add_command(label='Save to File', command=self.save_code)
         file_menu.add_command(label='Exit', command=a.destroy)
         menu.add_cascade(label="Edit", menu=edit_menu)
         custom_submenu = tk.Menu(edit_menu)   # submenu
-        edit_menu.add_command(label="Copy Code", command=self.copy_code)
         edit_menu.add_cascade(label="Custom Gate", menu=custom_submenu)
         custom_submenu.add_command(label="Custom Matrix Gate", command=self.custom_mtrx)
         custom_submenu.add_command(label="Grouped Gate", command=self.grouped)
@@ -276,7 +284,7 @@ class App(tk.Frame):
                     c += self.i_b[g].d["def"]
             col = row = final_layer = 0
             while col < self.cur['lyr'] and row < self.cur["q"]:
-                obj = self.d['s']["{}{}:{}".format("q", row, col)].obj
+                obj = self.d['s'][ind("q", row, col)].obj
                 if obj is not None and obj.s.full:  # only add if filled
                     final_layer = col
                     if obj.t == "Read" and obj.r[0].s.t == "c":
@@ -390,10 +398,6 @@ class App(tk.Frame):
             event.widget.tag_add("start", "1.0", '1.0+' + str(len("INVALID FORMATTING\n")) + "c")
         self.f_d["g"]["b"].grid(ipady=12*self.c*(self.cur['q']+self.cur['c']), ipadx=8*self.c*(self.cur['lyr']+1))
         self.g_to_c = True
-
-    def copy_code(self):  # copy the sidebar text to clipboard
-        self.clipboard_clear()
-        self.clipboard_append(self.code.get("1.0", tk.END))
 
     def save_code(self):
         with open(fd.asksaveasfilename(filetypes=(("QASM files", "*.qasm"), ("All files", "*.*"))), 'w') as f:
@@ -532,29 +536,26 @@ class App(tk.Frame):
             rnge = self.cur['lyr']
         for i in range(rnge):
             if t in ["q", "c"]:
-                new_row, reverse_rows = row+1, list(range(row+1, self.cur["q"]+self.cur["c"]))
+                new_r, reverse_rows = row+1, list(range(row+1, self.cur["q"]+self.cur["c"]))
                 if t == "c":
-                    new_row = row+1-self.cur["q"]
+                    new_r -= self.cur["q"]
                 reverse_rows.reverse()
                 for n in reverse_rows:
-                    w_t, cur_row = "q", n
+                    w_t, cur = "q", n
                     if n >= self.cur["q"]:
-                        w_t, cur_row = "c", n-self.cur["q"]
+                        w_t, cur = "c", n-self.cur["q"]
                     if i == 0:
-                        self.d['w'][w_t+str(cur_row)].wire.place(y=4*self.c*(5*(n+1)+8))
-                        self.d['w'][w_t+str(cur_row)].label.place(y=self.c*(20*(n+1)+31))
-                        self.d['w'][w_t+str(cur_row)].add_bttn.place(y=(20 * (n + 1) + 41) * self.c)
-                        self.d['w'][w_t+str(cur_row)].del_bttn.place(y=(20 * (n + 1) + 31) * self.c)
-                        self.d['w'][w_t+str(cur_row)].add_bttn["command"] = lambda: App.add(self, w_t, n + 1)
-                        self.d['w'][w_t+str(cur_row)].del_bttn["command"] = lambda: App.delete(self, w_t, n + 1)
+                        self.d['w'][w_t+str(cur)].place(self.c, n+1)
+                        self.d['w'][w_t+str(cur)].add_bttn["command"] = lambda: App.add(self, w_t, n+1)
+                        self.d['w'][w_t+str(cur)].del_bttn["command"] = lambda: App.delete(self, w_t, n+1)
                         if w_t == t:
-                            self.d['w'][w_t+str(cur_row+1)] = self.d['w'][w_t+str(cur_row)]
-                            self.d['w'][w_t+str(cur_row+1)].label["text"] = "{1}  {0}".format(str(cur_row+1), w_t)
-                    s = self.d['s']["{}{}:{}".format(w_t, cur_row, i)]
-                    s.y = range(self.c*(27+20*(n+1)), self.c*(27+20*(n+2)))
+                            self.d['w'][w_t+str(cur+1)] = self.d['w'][w_t+str(cur)]
+                            self.d['w'][w_t+str(cur+1)].label["text"] = "{1}  {0}".format(str(cur+1), w_t)
+                    s = self.d['s'][ind(w_t, cur, i)]
+                    s.place(self.c, n+1)
                     if w_t == t:
-                        s.k = "{}{}:{}".format(w_t, cur_row+1, i)
-                        self.d['s'][s.k] = s
+                        self.d['s'][ind(w_t, cur+1, i)] = s
+                        s.row = cur+1
                     if s.full and s.obj is not None:
                         for v in range(len(s.obj.lnks)):
                             s.obj.lnks[v].place(y=s.obj.r[0].s.y[0]+10*self.c, h=s.y[0]-s.obj.r[0].s.y[0]-8*self.c)
@@ -562,67 +563,66 @@ class App(tk.Frame):
                         if s.obj.t in ["Target", "Rec"]:
                             s.obj.widget.place(y=s.y[0]+2*self.c)
                 if i == 0:
-                    self.d['w'][t+str(new_row)] = Wire(self.f_d["g"]["f"], new_row, t)
-                self.d['s']["{}{}:{}".format(t, new_row, i)] = Spot(new_row, i, t, self)
+                    self.d['w'][t+str(new_r)] = Wire(self.f_d["g"]["f"], new_r, t)
+                self.d['s'][ind(t, new_r, i)] = Spot(new_r, i, t, self)
             else:
                 w = "q"
                 if i >= self.cur["q"]:
                     w, i = "c", i - self.cur["q"]
-                self.d['s']["{}{}:{}".format(w, i, self.cur[t])] = Spot(i, self.cur[t], w, self)
-                if self.d['s']["{}{}:{}".format(w, i, self.cur[t]-1)].obj is not None and \
-                        self.d['s']["{}{}:{}".format(w, i, self.cur[t]-1)].obj.t == "Read":
-                    self.d['s']["{}{}:{}".format(w, i, self.cur[t])].full = True
+                self.d['s'][ind(w, i, self.cur[t])] = Spot(i, self.cur[t], w, self)
+                if self.d['s'][ind(w, i, self.cur[t]-1)].obj is not None and \
+                        self.d['s'][ind(w, i, self.cur[t]-1)].obj.t == "Read":
+                    self.d['s'][ind(w, i, self.cur[t])].full = True
         self.cur[t] += 1
         self.rewrite_code()
+        for key in self.d['s']:
+            print(key, self.d['s'][key].y)
 
     def delete(self, t, row):
-        if self.cur[t] > self.init[t]:
+        if self.cur[t] <= self.init[t]:
+            return
+        else:
             rnge = max(self.cur['q'], self.cur["c"])
             if t in ["q", "c"]:
                 rnge = self.cur['lyr']
             for i in range(rnge):  # only delete if empty
                 for p in ['q', 'c']:
-                    if (len(t) > 1 and i < self.cur[p] and self.d['s']['{}{}:{}'.format(p, i, self.cur[t]-1)].obj
-                       is not None) or (len(t) < 3 and self.d['s']["{}{}:{}".format(t, self.cur[t]-1, i)].full):
+                    if (t == "lyr" and i < self.cur[p] and self.d['s'][ind(p, i, self.cur[t]-1)].obj is not None) or \
+                            (t in ["q", "c"] and self.d['s'][ind(t, row, i)].full):
                         return
-        else:
-            return
         self.cur[t] -= 1
         for i in range(rnge):
             if t in ["q", "c"]:
-                del_row = row
+                del_r = row
                 if t == "c":
-                    del_row = row - self.cur["q"]
+                    del_r = row - self.cur["q"]
                 if i == 0:
-                    self.d['w'][t+str(del_row)].wire.destroy()
-                    self.d['w'][t+str(del_row)].label.destroy()
-                    self.d['w'][t+str(del_row)].add_bttn.destroy()
-                    self.d['w'][t+str(del_row)].del_bttn.destroy()
-                    self.d['w'].pop(t+str(del_row))
-                self.d['s'].pop("{}{}:{}".format(t, del_row, i))
+                    self.d['w'][t+str(del_r)].wire.destroy()
+                    self.d['w'][t+str(del_r)].label.destroy()
+                    self.d['w'][t+str(del_r)].add_bttn.destroy()
+                    self.d['w'][t+str(del_r)].del_bttn.destroy()
+                    self.d['w'].pop(t+str(del_r))
+                self.d['s'].pop(ind(t, del_r, i))
                 for n in range(row+1, self.cur["q"] + self.cur["c"]+1):
-                    w_t, cur_row = "q", n
+                    w_t, cur = "q", n
                     if n > self.cur['q'] or (t == "c" and n == self.cur["q"]):
-                        w_t, cur_row = "c", n - self.cur["q"]
+                        w_t, cur = "c", n - self.cur["q"]
                         if t == "q":
-                            cur_row -= 1
+                            cur -= 1
                     if i == 0:
-                        self.d['w'][w_t+str(cur_row)].wire.place(y=4*self.c*(5*(n-1)+8))
-                        self.d['w'][w_t+str(cur_row)].label.place(y=self.c*(20*(n-1)+31))
-                        self.d['w'][w_t+str(cur_row)].add_bttn.place(y=(20*(n-1)+41)*self.c)
-                        self.d['w'][w_t+str(cur_row)].del_bttn.place(y=(20*(n-1)+31)*self.c)
-                        self.d['w'][w_t+str(cur_row)].add_bttn["command"] = lambda: App.add(self, w_t, n-1)
-                        self.d['w'][w_t+str(cur_row)].del_bttn["command"] = lambda: App.delete(self, w_t, n-1)
+                        self.d['w'][w_t+str(cur)].place(self.c, n-1)
+                        self.d['w'][w_t+str(cur)].add_bttn["command"], self.d['w'][w_t+str(cur)].del_bttn["command"] = \
+                            lambda: App.add(self, w_t, n-1), lambda: App.delete(self, w_t, n-1)
                         if w_t == t:
-                            self.d['w'][w_t+str(cur_row-1)] = self.d['w'][w_t+str(cur_row)]
-                            self.d['w'].pop(w_t + str(cur_row))
-                            self.d['w'][w_t+str(cur_row-1)].label["text"] = "{1}  {0}".format(str(cur_row-1), w_t)
-                    s = self.d['s']["{}{}:{}".format(w_t, cur_row, i)]
-                    s.y = range(self.c*(27+20*(n-1)), self.c*(27+20*n))
+                            self.d['w'][w_t+str(cur-1)] = self.d['w'][w_t+str(cur)]
+                            self.d['w'].pop(w_t+str(cur))
+                            self.d['w'][w_t+str(cur-1)].label["text"] = "{1}  {0}".format(str(cur-1), w_t)
+                    s = self.d['s'][ind(w_t, cur, i)]
+                    s.place(self.c, n-1)
                     if w_t == t:
-                        s.k = "{}{}:{}".format(w_t, cur_row-1, i)
-                        self.d['s'][s.k] = s
-                        self.d['s'].pop("{}{}:{}".format(w_t, cur_row, i))
+                        self.d['s'][ind(w_t, cur-1, i)] = s
+                        s.row = cur-1
+                        self.d['s'].pop(ind(w_t, cur, i))
                     if s.full and s.obj is not None:
                         for v in range(len(s.obj.lnks)):
                             s.obj.lnks[v].place(y=s.obj.r[0].s.y[0]+10*self.c, h=s.y[0]-s.obj.r[0].s.y[0]-8*self.c)
@@ -633,8 +633,10 @@ class App(tk.Frame):
                 w = "q"
                 if i >= self.cur['q']:
                     w, i = "c", i-self.cur['q']
-                self.d['s'].pop("{}{}:{}".format(w, i, self.cur[t]))
+                self.d['s'].pop(ind(w, i, self.cur[t]))
         self.rewrite_code()
+        for key in self.d['s']:
+            print(key, self.d['s'][key].y)
 
 
 if __name__ == "__main__":

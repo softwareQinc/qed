@@ -34,13 +34,14 @@ class ScrollFrame(tk.Frame):  # allows both scrollbars, used as the main frame t
 class Wire:  # Create class for all wires created
     def __init__(self, fr, row, type):
         self.label = tk.Label(fr, text="{1}  {0}".format(str(row), type))  # create label
-        if type == "c":  # classic protocol
-            self.wire, row = tk.Label(fr.a.wire_canvas, text="_ " * 500000), row + fr.a.cur["q"]  # create wire
-        if type == "q":  # quantum protocol
-            self.wire = tk.Frame(fr.a.wire_canvas, background="dark grey")  # create and place the wire itself
         self.del_bttn, self.add_bttn = tk.Button(fr, command=lambda: App.delete(fr.a, type, row), text="-"), \
             tk.Button(fr, command=lambda: App.add(fr.a, type, row), text="+")  # add and delete wire buttons
-        self.place(fr.a.c, row)
+        place_row = row
+        if type == "c":  # classic protocol
+            self.wire, place_row = tk.Label(fr.a.wire_canvas, text="_ " * 500000), row + fr.a.cur["q"]  # create wire
+        if type == "q":  # quantum protocol
+            self.wire = tk.Frame(fr.a.wire_canvas, background="dark grey")  # create and place the wire itself
+        self.place(fr.a.c, place_row)
 
     def place(self, c, new_row):
         self.add_bttn.place(x=13*c, y=(20*new_row+41)*c)
@@ -48,6 +49,11 @@ class Wire:  # Create class for all wires created
         self.label.place(x=5*c, y=(20*new_row+31)*c)
         self.wire.place(x=13*c, y=4*(5*new_row+8)*c, w=1000000, h=2*c)
         self.wire.lower()  # lower the wire to avoid accidental covering
+
+    def relabel(self, app, new_row, type):
+        self.label["text"] = "{1}  {0}".format(str(new_row), type)
+        self.add_bttn["command"] = lambda: App.add(app, type, new_row)
+        self.del_bttn["command"] = lambda: App.delete(app, type, new_row)
 
 
 class Spot:  # Create class for creating spots
@@ -536,21 +542,22 @@ class App(tk.Frame):  # build the actual app
             rnge = self.cur['lyr']
         for i in range(rnge):
             if t in ["q", "c"]:
-                new_r, reverse_rows = row+1, list(range(row+1, self.cur["q"]+self.cur["c"]))
+                new = row+1
+                reverse_rows = list(range(row + 1, self.cur["q"] + self.cur["c"]))
                 if t == "c":
-                    new_r -= self.cur["q"]
+                    new = row
+                    reverse_rows = list(range(row+self.cur["q"], self.cur["q"]+self.cur["c"]))
                 reverse_rows.reverse()
+                new_s_taken = False
                 for n in reverse_rows:
                     w_t, cur = "q", n
                     if n >= self.cur["q"]:
                         w_t, cur = "c", n-self.cur["q"]
                     if i == 0:
                         self.d['w'][w_t+str(cur)].place(self.c, n+1)
-                        self.d['w'][w_t+str(cur)].add_bttn["command"] = lambda: App.add(self, w_t, n+1)
-                        self.d['w'][w_t+str(cur)].del_bttn["command"] = lambda: App.delete(self, w_t, n+1)
                         if w_t == t:
                             self.d['w'][w_t+str(cur+1)] = self.d['w'][w_t+str(cur)]
-                            self.d['w'][w_t+str(cur+1)].label["text"] = "{1}  {0}".format(str(cur+1), w_t)
+                            self.d['w'][w_t+str(cur+1)].relabel(self, cur+1, w_t)
                     s = self.d['s'][ind(w_t, cur, i)]
                     s.place(self.c, n+1)
                     if w_t == t:
@@ -558,13 +565,20 @@ class App(tk.Frame):  # build the actual app
                         s.row = cur+1
                     if s.full and s.obj is not None:
                         for v in range(len(s.obj.lnks)):
-                            s.obj.lnks[v].place(y=s.obj.r[0].s.y[0]+10*self.c, h=s.y[0]-s.obj.r[0].s.y[0]-8*self.c)
+                            new_s_taken = True
+                            s.obj.lnks[v].place(y=s.obj.r[0].s.y[0]+12*self.c, h=s.y[0]-s.obj.r[0].s.y[0]-10*self.c)
+                            if s.obj.t in ["Read", "Rec"]:
+                                s.obj.lnks[v].place(y=s.obj.r[0].s.y[0]+10*self.c, h=s.y[0]-s.obj.r[0].s.y[0]-8*self.c)
+                            elif s.obj.t in ["1st", "2nd"]:
+                                s.obj.lnks[v].place(h=s.y[0]-s.obj.r[0].s.y[0]-12*self.c)
                         s.obj.widget.place(y=s.y[0])
                         if s.obj.t in ["Target", "Rec"]:
                             s.obj.widget.place(y=s.y[0]+2*self.c)
                 if i == 0:
-                    self.d['w'][t+str(new_r)] = Wire(self.f_d["g"]["f"], new_r, t)
-                self.d['s'][ind(t, new_r, i)] = Spot(new_r, i, t, self)
+                    self.d['w'][t+str(new)] = Wire(self.f_d["g"]["f"], new, t)
+                self.d['s'][ind(t, new, i)] = Spot(new, i, t, self)
+                if new_s_taken:
+                    self.d['s'][ind(t, new, i)].full = True
             else:
                 w = "q"
                 if i >= self.cur["q"]:
@@ -590,40 +604,69 @@ class App(tk.Frame):  # build the actual app
                         return
         self.cur[t] -= 1
         for i in range(rnge):
-            if t in ["q", "c"]:
-                del_r = row
-                if t == "c":
-                    del_r = row - self.cur["q"]
+            if t == "q":
                 if i == 0:
-                    self.d['w'][t+str(del_r)].wire.destroy()
-                    self.d['w'][t+str(del_r)].label.destroy()
-                    self.d['w'][t+str(del_r)].add_bttn.destroy()
-                    self.d['w'][t+str(del_r)].del_bttn.destroy()
-                    self.d['w'].pop(t+str(del_r))
-                self.d['s'].pop(ind(t, del_r, i))
+                    self.d['w'][t+str(row)].wire.destroy()
+                    self.d['w'][t+str(row)].label.destroy()
+                    self.d['w'][t+str(row)].add_bttn.destroy()
+                    self.d['w'][t+str(row)].del_bttn.destroy()
+                    self.d['w'].pop(t+str(row))
+                self.d['s'].pop(ind(t, row, i))
                 for n in range(row+1, self.cur["q"] + self.cur["c"]+1):
                     w_t, cur = "q", n
                     if n > self.cur['q'] or (t == "c" and n == self.cur["q"]):
-                        w_t, cur = "c", n - self.cur["q"]
-                        if t == "q":
-                            cur -= 1
+                        w_t, cur = "c", n-self.cur["q"]-1
                     if i == 0:
                         self.d['w'][w_t+str(cur)].place(self.c, n-1)
-                        self.d['w'][w_t+str(cur)].add_bttn["command"], self.d['w'][w_t+str(cur)].del_bttn["command"] = \
-                            lambda: App.add(self, w_t, n-1), lambda: App.delete(self, w_t, n-1)
                         if w_t == t:
                             self.d['w'][w_t+str(cur-1)] = self.d['w'][w_t+str(cur)]
                             self.d['w'].pop(w_t+str(cur))
-                            self.d['w'][w_t+str(cur-1)].label["text"] = "{1}  {0}".format(str(cur-1), w_t)
+                            self.d['w'][w_t+str(cur-1)].relabel(self, cur-1, w_t)
                     s = self.d['s'][ind(w_t, cur, i)]
                     s.place(self.c, n-1)
                     if w_t == t:
                         self.d['s'][ind(w_t, cur-1, i)] = s
                         s.row = cur-1
+                        s.k = ind(w_t, cur-1, i)
                         self.d['s'].pop(ind(w_t, cur, i))
                     if s.full and s.obj is not None:
                         for v in range(len(s.obj.lnks)):
-                            s.obj.lnks[v].place(y=s.obj.r[0].s.y[0]+10*self.c, h=s.y[0]-s.obj.r[0].s.y[0]-8*self.c)
+                            s.obj.lnks[v].place(y=s.obj.r[0].s.y[0]+12*self.c, h=s.y[0]-s.obj.r[0].s.y[0]-10*self.c)
+                            if s.obj.t in ["Read", "Rec"]:
+                                s.obj.lnks[v].place(y=s.obj.r[0].s.y[0]+10*self.c, h=s.y[0]-s.obj.r[0].s.y[0]-8*self.c)
+                            elif s.obj.t in ["1st", "2nd"]:
+                                s.obj.lnks[v].place(h=s.y[0]-s.obj.r[0].s.y[0]-12*self.c)
+                        s.obj.widget.place(y=s.y[0])
+                        if s.obj.t in ["Target", "Rec"]:
+                            s.obj.widget.place(y=s.y[0]+2*self.c)
+            elif t == "c":
+                if i == 0:
+                    self.d['w'][t+str(row)].wire.destroy()
+                    self.d['w'][t+str(row)].label.destroy()
+                    self.d['w'][t+str(row)].add_bttn.destroy()
+                    self.d['w'][t+str(row)].del_bttn.destroy()
+                    self.d['w'].pop(t+str(row))
+                self.d['s'].pop(ind(t, row, i))
+                for n in range(row+1, self.cur["c"]+1):
+                    if i == 0:
+                        self.d['w']["c"+str(n)].place(self.c, self.cur["q"]+n-1)
+                        self.d['w']["c"+str(n-1)] = self.d['w']["c"+str(n)]
+                        self.d['w'].pop("c"+str(n))
+                        self.d['w']["c"+str(n-1)].relabel(self, n-1, "c")
+                    s = self.d['s'][ind("c", n, i)]
+                    s.place(self.c, self.cur["q"]+n-1)
+                    self.d['s'][ind("c", n-1, i)] = s
+                    s.row = n-1
+                    s.k = ind("c", n-1, i)
+                    self.d['s'].pop(ind("c", n, i))
+                    if s.full and s.obj is not None:
+                        for v in range(len(s.obj.lnks)):
+                            s.obj.lnks[v].place(y=s.obj.r[0].s.y[0]+12*self.c, h=s.y[0]-s.obj.r[0].s.y[0]-10*self.c)
+                            if s.obj.t in ["Read", "Rec"]:
+                                s.obj.lnks[v].place(y=s.obj.r[0].s.y[0]+10*self.c, h=s.y[0]-s.obj.r[0].s.y[0]-8*self.c)
+                            elif s.obj.t in ["1st", "2nd"]:
+                                s.obj.lnks[v].place(h=s.y[0]-s.obj.r[0].s.y[0]-12*self.c)
+                        s.obj.s = self.d['s'][ind("c", n-1, i)]
                         s.obj.widget.place(y=s.y[0])
                         if s.obj.t in ["Target", "Rec"]:
                             s.obj.widget.place(y=s.y[0]+2*self.c)

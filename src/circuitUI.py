@@ -564,16 +564,13 @@ class App(tk.Frame):  # build the actual app
                         self.d['s'][ind(w_t, cur+1, i)] = s
                         s.row = cur+1
                     if s.full and s.obj is not None:
-                        for v in range(len(s.obj.lnks)):
-                            new_s_taken = True
-                            s.obj.lnks[v].place(y=s.obj.r[0].s.y[0]+12*self.c, h=s.y[0]-s.obj.r[0].s.y[0]-10*self.c)
-                            if s.obj.t in ["Read", "Rec"]:
-                                s.obj.lnks[v].place(y=s.obj.r[0].s.y[0]+10*self.c, h=s.y[0]-s.obj.r[0].s.y[0]-8*self.c)
-                            elif s.obj.t in ["1st", "2nd"]:
-                                s.obj.lnks[v].place(h=s.y[0]-s.obj.r[0].s.y[0]-12*self.c)
-                        s.obj.widget.place(y=s.y[0])
-                        if s.obj.t in ["Target", "Rec"]:
-                            s.obj.widget.place(y=s.y[0]+2*self.c)
+                        moving_obj, self.g_to_c = s.obj, False
+                        for obj in [s.obj] + s.obj.r:
+                            obj.s.empty()
+                        moving_obj.drag_end(s.row)
+                        if w_t == "c":
+                            moving_obj.drag_end(s.row+self.cur["q"]+1)
+                        self.g_to_c = True
                 if i == 0:
                     self.d['w'][t+str(new)] = Wire(self.f_d["g"]["f"], new, t)
                 self.d['s'][ind(t, new, i)] = Spot(new, i, t, self)
@@ -630,15 +627,13 @@ class App(tk.Frame):  # build the actual app
                         s.k = ind(w_t, cur-1, i)
                         self.d['s'].pop(ind(w_t, cur, i))
                     if s.full and s.obj is not None:
-                        for v in range(len(s.obj.lnks)):
-                            s.obj.lnks[v].place(y=s.obj.r[0].s.y[0]+12*self.c, h=s.y[0]-s.obj.r[0].s.y[0]-10*self.c)
-                            if s.obj.t in ["Read", "Rec"]:
-                                s.obj.lnks[v].place(y=s.obj.r[0].s.y[0]+10*self.c, h=s.y[0]-s.obj.r[0].s.y[0]-8*self.c)
-                            elif s.obj.t in ["1st", "2nd"]:
-                                s.obj.lnks[v].place(h=s.y[0]-s.obj.r[0].s.y[0]-12*self.c)
-                        s.obj.widget.place(y=s.y[0])
-                        if s.obj.t in ["Target", "Rec"]:
-                            s.obj.widget.place(y=s.y[0]+2*self.c)
+                        moving_obj, self.g_to_c = s.obj, False
+                        for obj in [s.obj] + s.obj.r:
+                            obj.s.empty()
+                        moving_obj.drag_end(s.row)
+                        if w_t == "c":
+                            moving_obj.drag_end(s.row+self.cur["q"]-1)
+                        self.g_to_c = True
             elif t == "c":
                 if i == 0:
                     self.d['w'][t+str(row)].wire.destroy()
@@ -660,16 +655,11 @@ class App(tk.Frame):  # build the actual app
                     s.k = ind("c", n-1, i)
                     self.d['s'].pop(ind("c", n, i))
                     if s.full and s.obj is not None:
-                        for v in range(len(s.obj.lnks)):
-                            s.obj.lnks[v].place(y=s.obj.r[0].s.y[0]+12*self.c, h=s.y[0]-s.obj.r[0].s.y[0]-10*self.c)
-                            if s.obj.t in ["Read", "Rec"]:
-                                s.obj.lnks[v].place(y=s.obj.r[0].s.y[0]+10*self.c, h=s.y[0]-s.obj.r[0].s.y[0]-8*self.c)
-                            elif s.obj.t in ["1st", "2nd"]:
-                                s.obj.lnks[v].place(h=s.y[0]-s.obj.r[0].s.y[0]-12*self.c)
-                        s.obj.s = self.d['s'][ind("c", n-1, i)]
-                        s.obj.widget.place(y=s.y[0])
-                        if s.obj.t in ["Target", "Rec"]:
-                            s.obj.widget.place(y=s.y[0]+2*self.c)
+                        moving_obj, self.g_to_c = s.obj, False
+                        for obj in [s.obj] + s.obj.r:
+                            obj.s.empty()
+                        moving_obj.drag_end(s.row+self.cur["q"]-1)
+                        self.g_to_c = True
             else:
                 w = "q"
                 if i >= self.cur['q']:

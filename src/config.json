@@ -90,7 +90,7 @@
     }
   },
   "Read": {
-    "READ": {
+    "MEAS": {
       "n": "Measure",
       "c": "",
       "bg": "",

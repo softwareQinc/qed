@@ -38,9 +38,9 @@ class Wire:  # Create class for all wires created
             tk.Button(fr, command=lambda: App.add(fr.a, type, row), text="+")  # add and delete wire buttons
         place_row = row
         if type == "c":  # classic protocol
-            self.wire, place_row = tk.Label(fr.a.wire_canvas, text="_ " * 500000), row + fr.a.cur["q"]  # create wire
+            self.wire, place_row = tk.Label(fr.a.wire_canv, text="_ " * 500000), row + fr.a.cur["q"]  # create wire
         if type == "q":  # quantum protocol
-            self.wire = tk.Frame(fr.a.wire_canvas, background="dark grey")  # create and place the wire itself
+            self.wire = tk.Frame(fr.a.wire_canv, background="dark grey")  # create and place the wire itself
         self.place(fr.a.c, place_row)
 
     def place(self, c, new_row):
@@ -138,11 +138,14 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                                     self.f.a.d['s'][ind(t, self.last_s.row, n)].empty()
                                 self.f.a.d['s'][self.r[i].s.k].empty()
                         if self.t in ["Ctrl", "1st"]:  # only for controls and doubles with prior placements
-                            for n in range(s.row, self.r[i].s.row + 1):
+                            rows = range(s.row, self.r[i].s.row+1)
+                            if s.row > self.r[i].s.row:
+                                rows = range(self.r[i].s.row, s.row+1)
+                            for n in rows:
                                 self.f.a.d['s'][ind(t, n, self.r[i].s.col)].empty()
                     self.r = []
                 if self.t in ["Target", "2nd", "Rec"]:  # if it is the second, attach and place
-                    if self.undragged:
+                    if self.lnks == []:
                         self.lnks = [tk.Label(self.f, background="dark grey")]  # build the link
                     self.lnks[0].place(x=self.r[0].s.x[0]+6*self.f.a.c, y=self.r[0].s.y[0]+12*self.f.a.c, w=2,
                                        h=abs(self.r[0].s.y[0]-s.y[0])-10*self.f.a.c)
@@ -164,7 +167,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                                     obj.r += [nw]
                                 self.r += [nw]
                     else:  # attach links and shift receptor properly
-                        if self.undragged:
+                        if len(self.lnks) == 1:
                             self.lnks += [tk.Label(self.f, bg="dark grey")]
                         for i in range(len(self.lnks)):
                             self.lnks[i].place(x=self.r[0].s.x[0]+10*self.f.a.c+5*i, y=self.r[0].s.y[0]+10*self.f.a.c,
@@ -247,10 +250,9 @@ class App(tk.Frame):  # build the actual app
             self.f_d[frame]["b"] = tk.Frame(self.f_d[frame]["f"])  # b = box
         self.f_d["c"]["f"].place(x=round(0.8*a.winfo_screenwidth()))
         self.f_d["c"]["b"].grid(ipady=round(0.5*a.winfo_screenheight()), ipadx=round(0.1*a.winfo_screenwidth()))
-        self.wire_canvas = tk.Canvas(self.f_d["g"]["f"])
-        self.wire_canvas.grid(ipady=12*self.c*(self.cur["q"]+self.cur["c"]+1), ipadx=8*self.c*(self.cur['lyr']+1))
+        self.wire_canv = tk.Canvas(self.f_d["g"]["f"])
         self.code, self.bnk, self.g_to_c = tk.Text(self.f_d["c"]["f"], background="dark grey"), \
-            tk.LabelFrame(self.wire_canvas, text="Item Bank"), True
+            tk.LabelFrame(self.wire_canv, text="Item Bank"), True
         self.code.bind("<Key>", self.code_to_grid)
         self.code.place(x=0, y=0, relwidth=1.0, relheight=1.0)
         self.bnk.place(x=5*self.c, h=28*self.c, w=4*self.c*(4*self.cur['lyr']+1))
@@ -290,19 +292,19 @@ class App(tk.Frame):  # build the actual app
                     c += self.i_b[g].d["def"]
             col = row = final_layer = 0
             while col < self.cur['lyr'] and row < self.cur["q"]:
-                obj = self.d['s'][ind("q", row, col)].obj
-                if obj is not None and obj.s.full:  # only add if filled
+                s = self.d['s'][ind("q", row, col)]
+                if s.full and s.obj is not None:  # only add if filled
                     final_layer = col
-                    if obj.t == "Read" and obj.r[0].s.t == "c":
-                        c += "\nmeasure q[{}] -> c[{}];".format(str(row), obj.r[0].s.row)
-                    if obj.t == "Gate" or (obj.t in ["1st", "Ctrl"] and obj.s != obj.r[-1].s):
+                    if s.obj.t == "Read" and s.obj.r[0].s.t == "c":
+                        c += "\nmeasure q[{}] -> c[{}];".format(str(row), s.obj.r[0].s.row)
+                    if s.obj.t == "Gate" or (s.obj.t in ["1st", "Ctrl"] and s.obj.s != s.obj.r[-1].s):
                         start_text = "\n{} "
-                        if obj.ct == "mtrx":
+                        if s.obj.ct == "mtrx":
                             start_text = "\n// pragma custom_gate_action {} "
-                        c += start_text.format(obj.c)
-                        for item in ([obj] + obj.r):
+                        c += start_text.format(s.obj.c)
+                        for item in ([s.obj] + s.obj.r):
                             location_text = "q[{}]; "
-                            if len(obj.r) != 0 and item != obj.r[-1]:
+                            if len(s.obj.r) != 0 and item != s.obj.r[-1]:
                                 location_text = "q[{}], "
                             c += location_text.format(str(item.s.row))
                 col += 1
@@ -316,7 +318,7 @@ class App(tk.Frame):  # build the actual app
                 for i in range(final_layer+1, self.cur['lyr']):
                     App.delete(self, 'lyr', None)
             self.f_d["g"]["b"].grid(ipady=12*self.c*(self.cur["q"]+self.cur["c"]+1), ipadx=8*self.c*(self.cur['lyr']+1))
-            self.wire_canvas.grid(ipady=12*self.c*(self.cur["q"]+self.cur["c"]+1), ipadx=8*self.c*(self.cur['lyr']+1))
+            self.wire_canv.place(x=0, y=0, h=24*self.c*(self.cur["q"]+self.cur["c"]+1), w=16*self.c*(self.cur['lyr']+1))
 
     def find(self, start):
         if self.code.get(self.code.search("[", start) + "+1c", self.code.search("]", start)) is not None:
@@ -548,7 +550,6 @@ class App(tk.Frame):  # build the actual app
                     new = row
                     reverse_rows = list(range(row+self.cur["q"], self.cur["q"]+self.cur["c"]))
                 reverse_rows.reverse()
-                new_s_taken = False
                 for n in reverse_rows:
                     w_t, cur = "q", n
                     if n >= self.cur["q"]:
@@ -562,11 +563,13 @@ class App(tk.Frame):  # build the actual app
                     s.place(self.c, n+1)
                     if w_t == t:
                         self.d['s'][ind(w_t, cur+1, i)] = s
+                        s.k = ind(w_t, cur+1, i)
                         s.row = cur+1
                     if s.full and s.obj is not None:
                         moving_obj, self.g_to_c = s.obj, False
-                        for obj in [s.obj] + s.obj.r:
-                            obj.s.empty()
+                        s.obj.s = None
+                        s.empty()
+                        moving_obj.undragged = True
                         moving_obj.drag_end(s.row)
                         if w_t == "c":
                             moving_obj.drag_end(s.row+self.cur["q"]+1)
@@ -574,8 +577,6 @@ class App(tk.Frame):  # build the actual app
                 if i == 0:
                     self.d['w'][t+str(new)] = Wire(self.f_d["g"]["f"], new, t)
                 self.d['s'][ind(t, new, i)] = Spot(new, i, t, self)
-                if new_s_taken:
-                    self.d['s'][ind(t, new, i)].full = True
             else:
                 w = "q"
                 if i >= self.cur["q"]:

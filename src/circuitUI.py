@@ -602,7 +602,7 @@ class App(tk.Frame):  # build the actual app
                         return
         self.cur[t] -= 1
         for i in range(rnge):
-            if t == "q":
+            if t in ["q", "c"]:
                 if i == 0:
                     self.d['w'][t+str(row)].wire.destroy()
                     self.d['w'][t+str(row)].label.destroy()
@@ -610,6 +610,7 @@ class App(tk.Frame):  # build the actual app
                     self.d['w'][t+str(row)].del_bttn.destroy()
                     self.d['w'].pop(t+str(row))
                 self.d['s'].pop(ind(t, row, i))
+            if t == "q":
                 for n in range(row+1, self.cur["q"] + self.cur["c"]+1):
                     w_t, cur = "q", n
                     if n > self.cur['q'] or (t == "c" and n == self.cur["q"]):
@@ -636,13 +637,6 @@ class App(tk.Frame):  # build the actual app
                             moving_obj.drag_end(s.row+self.cur["q"]-1)
                         self.g_to_c = True
             elif t == "c":
-                if i == 0:
-                    self.d['w'][t+str(row)].wire.destroy()
-                    self.d['w'][t+str(row)].label.destroy()
-                    self.d['w'][t+str(row)].add_bttn.destroy()
-                    self.d['w'][t+str(row)].del_bttn.destroy()
-                    self.d['w'].pop(t+str(row))
-                self.d['s'].pop(ind(t, row, i))
                 for n in range(row+1, self.cur["c"]+1):
                     if i == 0:
                         self.d['w']["c"+str(n)].place(self.c, self.cur["q"]+n-1)

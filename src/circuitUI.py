@@ -317,8 +317,8 @@ class App(tk.Frame):  # build the actual app
             elif final_layer + 1 < self.init['lyr'] < self.cur['lyr']:
                 for i in range(final_layer+1, self.cur['lyr']):
                     App.delete(self, 'lyr', None)
-            self.f_d["g"]["b"].grid(ipady=12*self.c*(self.cur["q"]+self.cur["c"]+1), ipadx=8*self.c*(self.cur['lyr']+1))
-            self.wire_canv.place(x=0, y=0, h=24*self.c*(self.cur["q"]+self.cur["c"]+1), w=16*self.c*(self.cur['lyr']+1))
+        self.f_d["g"]["b"].grid(ipady=12*self.c*(self.cur["q"]+self.cur["c"]+1), ipadx=8*self.c*(self.cur['lyr']+1))
+        self.wire_canv.place(x=0, y=0, h=24*self.c*(self.cur["q"]+self.cur["c"]+1), w=16*self.c*(self.cur['lyr']+1))
 
     def find(self, start):
         if self.code.get(self.code.search("[", start) + "+1c", self.code.search("]", start)) is not None:
@@ -370,7 +370,7 @@ class App(tk.Frame):  # build the actual app
                     opn, g = cd.search("(", line), None
                     if cd.search(";", str(i)+".0", str(i+1)+".0") != "":
                         if cd.search("measure", line, str(i + 1) + ".0") != "":
-                            g = self.i_b["READ"]
+                            g = self.i_b["MEAS"]
                         elif cd.search("//", line) != "":
                             if cd.search("custom_gate_action", line) != "":
                                 g = self.i_b[cd.get(cd.search("custom_gate_action", line)+"+19c",
@@ -385,7 +385,7 @@ class App(tk.Frame):  # build the actual app
                                         (len(cd.get(cd.search("[", line)+"+1c", cd.search("]", line))) != 0):
                                     g = it
                                     break
-                        if g is not None:
+                        if g is not None and self.find(line) != "":
                             new = Obj(g.f, g.k, g.d, g.t, g.s, [], g.r_no, g.cstm, g.ct)
                             new.undragged = False
                             new.drag_end(self.find(line))
@@ -394,7 +394,7 @@ class App(tk.Frame):  # build the actual app
                                     g.k[0:g.k.index("(")] + cd.get(opn, cd.search(")", line)+"+1c")
                             if len(new.r) != 0:
                                 new.r[0].last_s = new.s
-                                if g == self.i_b["READ"]:
+                                if g == self.i_b["MEAS"]:
                                     new.r[0].drag_end(self.find(str(cd.search("c", line))) + self.cur["q"])
                                 else:
                                     new.r[0].drag_end(self.find(cd.search("]", line) + "+1c"))
@@ -404,7 +404,8 @@ class App(tk.Frame):  # build the actual app
             event.widget.insert(1.0, "INVALID FORMATTING\n")
             event.widget.tag_config("start", foreground="dark red")
             event.widget.tag_add("start", "1.0", '1.0+' + str(len("INVALID FORMATTING\n")) + "c")
-        self.f_d["g"]["b"].grid(ipady=12*self.c*(self.cur['q']+self.cur['c']), ipadx=8*self.c*(self.cur['lyr']+1))
+        self.f_d["g"]["b"].grid(ipady=12*self.c*(self.cur['q']+self.cur['c']+1), ipadx=8*self.c*(self.cur['lyr']+1))
+        self.wire_canv.place(x=0, y=0, h=24*self.c*(self.cur["q"]+self.cur["c"]+1), w=16*self.c*(self.cur['lyr']+1))
         self.g_to_c = True
 
     def save_code(self):

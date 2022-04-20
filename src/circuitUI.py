@@ -43,14 +43,14 @@ class Wire:  # Create class for all wires created
             self.wire = tk.Frame(fr.a.wire_canv, background="dark grey")  # create and place the wire itself
         self.place(fr.a.c, place_row)
 
-    def place(self, c, new_row):
+    def place(self, c, new_row):  # move a wire based upon a given row
         self.add_bttn.place(x=13*c, y=(20*new_row+41)*c)
         self.del_bttn.place(x=c, y=(20*new_row+31)*c)
         self.label.place(x=5*c, y=(20*new_row+31)*c)
         self.wire.place(x=13*c, y=4*(5*new_row+8)*c, w=1000000, h=2*c)
         self.wire.lower()  # lower the wire to avoid accidental covering
 
-    def relabel(self, app, new_row, type):
+    def relabel(self, app, new_row, type):  # rename a wire based upon a new given name
         self.label["text"] = "{1}  {0}".format(str(new_row), type)
         self.add_bttn["command"] = lambda: App.add(app, type, new_row)
         self.del_bttn["command"] = lambda: App.delete(app, type, new_row)
@@ -66,10 +66,10 @@ class Spot:  # Create class for creating spots
         if spot_type == "":  # overwrite the x and y ranges
             self.x, self.y = range(4*a.c*(4*col+2), 4*a.c*(4*col+2)+1), range((4+14*row)*a.c, (4+14*row)*a.c+1)
 
-    def empty(self):
+    def empty(self):  # empty a spot
         self.full, self.obj = False, None
 
-    def place(self, c, new_row):
+    def place(self, c, new_row):  # move a spot to a new y_location
         self.y = range(c*(27+20*new_row), c*(27+20*(new_row+1)))
 
 
@@ -89,21 +89,21 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
             if type == "Rec":  # receptor only
                 self.widget.place(x=spot.x[0]+4*self.f.a.c)
 
-        def drag_start(event):
+        def drag_start(event):  # start the drag event and save the location values
             frame.a.g_to_c = True
             event.widget._drag_start_x, event.widget._drag_start_y, self.last_s = event.x, event.y, self.s  # drag data
             if self.undragged and len(self.r) == 0:
                 Obj(self.f, self.k, self.d, self.t, self.s, [], self.r_no, self.cstm, self.ct)
         self.widget.bind("<Button-1>", drag_start)  # clicking the mouse begins dragging
 
-        def on_drag_motion(event):
+        def on_drag_motion(event):  # drag the box across the screen
             self.widget.place(x=event.widget.winfo_x()-event.widget._drag_start_x+event.x,
                               y=event.widget.winfo_y()-event.widget._drag_start_y+event.y)  # use co-ord fix
         self.widget.bind("<B1-Motion>", on_drag_motion)  # dragging enables drag motion
         self.widget.bind("<ButtonRelease-1>", self.drag_end)  # releasing the mouse (even after one click)
         self.widget.bind("<Double-Button-1>", lambda x: self.delete())  # double-clicking deletes the widget
 
-    def drag_end(self, event):
+    def drag_end(self, event):  # finish placing an object and have it snap to position
         t, row, col = "q", 0, 0
         if self.t == "Rec":
             t = "c"
@@ -188,7 +188,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                     ent = tk.Entry(self.f, textvariable=tk.StringVar(self.f, value="θ"), bg=self.d["bg"])
                     ent.place(x=s.x[0] + self.f.a.c, y=s.y[0] + 4 * self.f.a.c, w=10 * self.f.a.c)
 
-                    def get_param(entry):
+                    def get_param(entry):  # get the submitted parameter for the gate
                         ent_string = "("+entry.get()+")"
                         self.c, self.widget["text"] = self.d["c"]+ent_string, self.k[0:self.k.index("(")]+ent_string
                         self.f.a.rewrite_code()
@@ -211,7 +211,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
             if self.t == "Rec":
                 self.widget.place(x=self.last_s.x[0]+4*self.f.a.c)
 
-    def delete(self):
+    def delete(self):  # delete an object and the objects attached to it
         for obj in ([self] + self.r):  # deleting one piece of a system deletes it all
             if obj.t in ["Target", "2nd", "Rec"]:
                 for link in obj.lnks:
@@ -320,7 +320,7 @@ class App(tk.Frame):  # build the actual app
         self.f_d["g"]["b"].grid(ipady=12*self.c*(self.cur["q"]+self.cur["c"]+1), ipadx=8*self.c*(self.cur['lyr']+1))
         self.wire_canv.place(x=0, y=0, h=24*self.c*(self.cur["q"]+self.cur["c"]+1), w=16*self.c*(self.cur['lyr']+1))
 
-    def find(self, start):
+    def find(self, start):  # find the row given by the written code
         if self.code.get(self.code.search("[", start) + "+1c", self.code.search("]", start)) is not None:
             return int(self.code.get(self.code.search("[", start) + "+1c", self.code.search("]", start)))
 
@@ -408,11 +408,11 @@ class App(tk.Frame):  # build the actual app
         self.wire_canv.place(x=0, y=0, h=24*self.c*(self.cur["q"]+self.cur["c"]+1), w=16*self.c*(self.cur['lyr']+1))
         self.g_to_c = True
 
-    def save_code(self):
+    def save_code(self):  # save the code as a new file
         with open(fd.asksaveasfilename(filetypes=(("QASM files", "*.qasm"), ("All files", "*.*"))), 'w') as f:
             f.write(self.code.get("1.0", tk.END))
 
-    def grouped(self):
+    def grouped(self):  # build a new gate by grouping other gates together
         fr = tk.Toplevel(self)
         fr.title("Custom Gate Creation")
         fr.geometry(str(self.c*50)+"x"+str(self.c*55))
@@ -424,7 +424,7 @@ class App(tk.Frame):  # build the actual app
             gs.insert(i, item)
             i += 1
 
-        def lst(frame, txt, opts, q_no):
+        def lst(frame, txt, opts, q_no):  # build the list of selected qubits
             selected, cname = [], opts.curselection()
             for val in cname:
                 selected.append(opts.get(val))
@@ -439,7 +439,9 @@ class App(tk.Frame):  # build the actual app
                     else:
                         txt.insert(tk.END, val+" () ()\n")
 
-            def create(nm):
+            def create(nm):  # create the gate described
+                if nm in self.i_b:
+                    return None
                 dta = "gate "+nm+" "+str(['q', 'r', 's', 't', 'u', 'v'][0:q_no])[1:][:-1].replace("'", "")+" {\n"
                 try:
                     for vl in range(3, int(txt.index('end-1c').split('.')[0])):
@@ -476,7 +478,7 @@ class App(tk.Frame):  # build the actual app
         qn.place(x=self.c*16, y=self.c*42, w=self.c*5, h=self.c*4)
         tk.Button(fr, text="Make Template", command=lambda: lst(fr, t, gs, int(qn.get()))).place(x=self.c, y=self.c*48)
 
-    def custom_mtrx(self):
+    def custom_mtrx(self):  # build a new gate with a custom matrix
         fr = tk.Toplevel(self)
         fr.title("Custom Gate Creation")
         fr.geometry(str(self.c*45)+"x"+str(self.c*50))
@@ -486,7 +488,7 @@ class App(tk.Frame):  # build the actual app
         ets["nm"].place(y=self.c*8, x=self.c*15, w=self.c*25)
         tk.Label(fr, text="Gate Name: ").place(x=0, y=self.c*8)
 
-        def new_n(f, e, v):
+        def new_n(f, e, v):  # build the matrix grid for entering the values
             v["n"] = int(e["n"].get())
             if e["mtrx"] is not None:
                 for i in range(len(e["mtrx"])):
@@ -502,8 +504,10 @@ class App(tk.Frame):  # build the actual app
                     ets["mtrx"] += [new_list]
         tk.Button(fr, text="Submit n", command=lambda: new_n(fr, ets, vs)).place(x=self.c * 17, y=self.c * 2)
 
-        def new_mtrx(f, e, v):
-            def newgate(warn):
+        def new_mtrx(f, e, v):  # build the matrix itself
+            def newgate(warn):  # build the official gate
+                if e["nm"].get() in self.i_b:
+                    return None
                 if warn is not None:
                     warn.destroy()
                 self.init["lyr"] += 1
@@ -539,7 +543,7 @@ class App(tk.Frame):  # build the actual app
                 tk.Label(f, text="Input must be in format '{Real}+{Im}j'").place(x=self.c * 4, y=self.c * 14)
         tk.Button(fr, text="Create", command=lambda: new_mtrx(fr, ets, vs)).place(x=self.c * 30, y=self.c * 2)
 
-    def add(self, t, row):
+    def add(self, t, row):  # add a new row below the row where the button was clicked
         rnge = self.cur['q'] + self.cur["c"]
         if t in ["q", "c"]:
             rnge = self.cur['lyr']
@@ -589,7 +593,7 @@ class App(tk.Frame):  # build the actual app
         self.cur[t] += 1
         self.rewrite_code()
 
-    def delete(self, t, row):
+    def delete(self, t, row):  # delete the row where the button was clicked
         if self.cur[t] <= self.init[t]:
             return
         else:

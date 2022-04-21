@@ -4,10 +4,10 @@ from tkinter import filedialog as fd
 import json
 import numpy as np
 
-jd = json.load(open("config.json"))
+jd = json.load(open("config.json"))  # open the config.json file to build the jd dictionary
 
 
-def ind(wire_type, row, col):  # create a default index creator
+def ind(wire_type, row, col):  # create a default index creator used for spots
     return '{}{}:{}'.format(wire_type, row, col)
 
 
@@ -33,10 +33,9 @@ class ScrollFrame(tk.Frame):  # allows both scrollbars, used as the main frame t
 
 class Wire:  # Create class for all wires created
     def __init__(self, fr, row, type):
-        self.label = tk.Label(fr, text="{1}  {0}".format(str(row), type))  # create label
+        self.label, place_row = tk.Label(fr, text="{1}  {0}".format(str(row), type)), row  # create label
         self.del_bttn, self.add_bttn = tk.Button(fr, command=lambda: App.delete(fr.a, type, row), text="-"), \
             tk.Button(fr, command=lambda: App.add(fr.a, type, row), text="+")  # add and delete wire buttons
-        place_row = row
         if type == "c":  # classic protocol
             self.wire, place_row = tk.Label(fr.a.wire_canv, text="_ " * 500000), row + fr.a.cur["q"]  # create wire
         if type == "q":  # quantum protocol
@@ -52,15 +51,15 @@ class Wire:  # Create class for all wires created
 
     def relabel(self, app, new_row, type):  # rename a wire based upon a new given name
         self.label["text"] = "{1}  {0}".format(str(new_row), type)
-        self.add_bttn["command"] = lambda: App.add(app, type, new_row)
-        self.del_bttn["command"] = lambda: App.delete(app, type, new_row)
+        self.add_bttn["command"], self.del_bttn["command"] = (lambda: App.add(app, type, new_row)), \
+            (lambda: App.delete(app, type, new_row))   # give new commands to avoid previous numbers carrying over
 
 
 class Spot:  # Create class for creating spots
     def __init__(self, row, col, spot_type, a):
         self.k, self.t, self.col, self.row = ind(spot_type, row, col), spot_type, col, row  # save ind data
         if spot_type == 'c':
-            row = row + a.cur['q']
+            row = row + a.cur['q']  # classic wires have distinct placement
         self.x, self.y = range(a.c*(17+16*col), a.c*(17+16*(col+1))), range(a.c*(27+20*row), a.c*(27+20*(row+1)))
         self.full, self.obj = False, None  # is the spot filled, and if so, what is attached?
         if spot_type == "":  # overwrite the x and y ranges
@@ -90,8 +89,8 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                 self.widget.place(x=spot.x[0]+4*self.f.a.c)
 
         def drag_start(event):  # start the drag event and save the location values
-            frame.a.g_to_c = True
-            event.widget._drag_start_x, event.widget._drag_start_y, self.last_s = event.x, event.y, self.s  # drag data
+            event.widget._drag_start_x, event.widget._drag_start_y, self.last_s, frame.a.g_to_c = event.x, event.y, \
+                self.s, True  # assign drag data
             if self.undragged and len(self.r) == 0:
                 Obj(self.f, self.k, self.d, self.t, self.s, [], self.r_no, self.cstm, self.ct)
         self.widget.bind("<Button-1>", drag_start)  # clicking the mouse begins dragging
@@ -289,23 +288,23 @@ class App(tk.Frame):  # build the actual app
         if self.g_to_c:
             for g in self.i_b:
                 if self.i_b[g].cstm:
-                    c += self.i_b[g].d["def"]
+                    c += self.i_b[g].d["def"]  # insert custom gate definition
             col = row = final_layer = 0
             while col < self.cur['lyr'] and row < self.cur["q"]:
                 s = self.d['s'][ind("q", row, col)]
                 if s.full and s.obj is not None:  # only add if filled
-                    final_layer = col
+                    final_layer = col  # save the final layer used to check if some can be deleted
                     if s.obj.t == "Read" and s.obj.r[0].s.t == "c":
-                        c += "\nmeasure q[{}] -> c[{}];".format(str(row), s.obj.r[0].s.row)
+                        c += "\nmeasure q[{}] -> c[{}];".format(str(row), s.obj.r[0].s.row)  # measurement code
                     if s.obj.t == "Gate" or (s.obj.t in ["1st", "Ctrl"] and s.obj.s != s.obj.r[-1].s):
-                        start_text = "\n{} "
+                        start_text = "\n{} "  # write in the opening text
                         if s.obj.ct == "mtrx":
-                            start_text = "\n// pragma custom_gate_action {} "
+                            start_text = "\n// pragma custom_gate_action {} "  # save custom action text
                         c += start_text.format(s.obj.c)
                         for item in ([s.obj] + s.obj.r):
-                            location_text = "q[{}]; "
+                            location_text = "q[{}]; "  # save final qubit
                             if len(s.obj.r) != 0 and item != s.obj.r[-1]:
-                                location_text = "q[{}], "
+                                location_text = "q[{}], "  # save a qubit which is not last
                             c += location_text.format(str(item.s.row))
                 col += 1
                 if col == self.cur["lyr"]:
@@ -549,11 +548,9 @@ class App(tk.Frame):  # build the actual app
             rnge = self.cur['lyr']
         for i in range(rnge):
             if t in ["q", "c"]:
-                new = row+1
-                reverse_rows = list(range(row + 1, self.cur["q"] + self.cur["c"]))
+                new, reverse_rows = row+1, list(range(row + 1, self.cur["q"] + self.cur["c"]))
                 if t == "c":
-                    new = row
-                    reverse_rows = list(range(row+self.cur["q"], self.cur["q"]+self.cur["c"]))
+                    new, reverse_rows = row, list(range(row+self.cur["q"], self.cur["q"]+self.cur["c"]))
                 reverse_rows.reverse()
                 for n in reverse_rows:
                     w_t, cur = "q", n
@@ -566,15 +563,12 @@ class App(tk.Frame):  # build the actual app
                             self.d['w'][w_t+str(cur+1)].relabel(self, cur+1, w_t)
                     s = self.d['s'][ind(w_t, cur, i)]
                     s.place(self.c, n+1)
-                    if w_t == t:
-                        self.d['s'][ind(w_t, cur+1, i)] = s
-                        s.k = ind(w_t, cur+1, i)
-                        s.row = cur+1
-                    if s.full and s.obj is not None:
+                    if w_t == t:  # if adding a new one of the current wire, add one to the future wires index
+                        self.d['s'][ind(w_t, cur+1, i)], s.k, s.row = s, ind(w_t, cur+1, i), cur+1
+                    if s.full and s.obj is not None:  # move the object to its new location
                         moving_obj, self.g_to_c = s.obj, False
-                        s.obj.s = None
+                        s.obj.s, moving_obj.undragged = None, True
                         s.empty()
-                        moving_obj.undragged = True
                         moving_obj.drag_end(s.row)
                         if w_t == "c":
                             moving_obj.drag_end(s.row+self.cur["q"]+1)
@@ -594,7 +588,7 @@ class App(tk.Frame):  # build the actual app
         self.rewrite_code()
 
     def delete(self, t, row):  # delete the row where the button was clicked
-        if self.cur[t] <= self.init[t]:
+        if self.cur[t] <= self.init[t]:  # don't delete the final one of either qubits or bits
             return
         else:
             rnge = max(self.cur['q'], self.cur["c"])
@@ -608,7 +602,7 @@ class App(tk.Frame):  # build the actual app
         self.cur[t] -= 1
         for i in range(rnge):
             if t in ["q", "c"]:
-                if i == 0:
+                if i == 0:  # destroy the physical widget pieces
                     self.d['w'][t+str(row)].wire.destroy()
                     self.d['w'][t+str(row)].label.destroy()
                     self.d['w'][t+str(row)].add_bttn.destroy()
@@ -622,18 +616,16 @@ class App(tk.Frame):  # build the actual app
                         w_t, cur = "c", n-self.cur["q"]-1
                     if i == 0:
                         self.d['w'][w_t+str(cur)].place(self.c, n-1)
-                        if w_t == t:
+                        if w_t == t:  # renaming if need be
                             self.d['w'][w_t+str(cur-1)] = self.d['w'][w_t+str(cur)]
                             self.d['w'].pop(w_t+str(cur))
                             self.d['w'][w_t+str(cur-1)].relabel(self, cur-1, w_t)
                     s = self.d['s'][ind(w_t, cur, i)]
                     s.place(self.c, n-1)
                     if w_t == t:
-                        self.d['s'][ind(w_t, cur-1, i)] = s
-                        s.row = cur-1
-                        s.k = ind(w_t, cur-1, i)
+                        self.d['s'][ind(w_t, cur-1, i)], s.k, s.row = s, ind(w_t, cur-1, i), cur-1
                         self.d['s'].pop(ind(w_t, cur, i))
-                    if s.full and s.obj is not None:
+                    if s.full and s.obj is not None:  # place the objects
                         moving_obj, self.g_to_c = s.obj, False
                         for obj in [s.obj] + s.obj.r:
                             obj.s.empty()
@@ -650,11 +642,9 @@ class App(tk.Frame):  # build the actual app
                         self.d['w']["c"+str(n-1)].relabel(self, n-1, "c")
                     s = self.d['s'][ind("c", n, i)]
                     s.place(self.c, self.cur["q"]+n-1)
-                    self.d['s'][ind("c", n-1, i)] = s
-                    s.row = n-1
-                    s.k = ind("c", n-1, i)
+                    self.d['s'][ind("c", n-1, i)], s.k, s.row = s, ind("c", n-1, i), n-1
                     self.d['s'].pop(ind("c", n, i))
-                    if s.full and s.obj is not None:
+                    if s.full and s.obj is not None:  # place the objects
                         moving_obj, self.g_to_c = s.obj, False
                         for obj in [s.obj] + s.obj.r:
                             obj.s.empty()
@@ -664,7 +654,7 @@ class App(tk.Frame):  # build the actual app
                 w = "q"
                 if i >= self.cur['q']:
                     w, i = "c", i-self.cur['q']
-                self.d['s'].pop(ind(w, i, self.cur[t]))
+                self.d['s'].pop(ind(w, i, self.cur[t]))  # delete the spots on layers that are being deleted
         self.rewrite_code()
 
 

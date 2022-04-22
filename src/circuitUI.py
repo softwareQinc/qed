@@ -131,7 +131,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                         self.r[i].widget.destroy()  # destroy previous target
                         for n in range(len(self.r[i].lnks)):
                             self.r[i].lnks[n].destroy()  # destroy previous links
-                        if self.t == "Read":  # only for readers with prior placements
+                        if self.t == "Read" and self.f.a.g_to_c:  # only for readers with prior placements
                             if self.last_s is not None:
                                 for n in range(self.last_s.col, self.f.a.cur["lyr"]):
                                     self.f.a.d['s'][ind(t, self.last_s.row, n)].empty()
@@ -294,7 +294,7 @@ class App(tk.Frame):  # build the actual app
                 s = self.d['s'][ind("q", row, col)]
                 if s.full and s.obj is not None:  # only add if filled
                     final_layer = col  # save the final layer used to check if some can be deleted
-                    if s.obj.t == "Read" and s.obj.r[0].s.t == "c":
+                    if s.obj.t == "Read" and s.obj.r[0].s is not None and s.obj.r[0].s.t == "c":
                         c += "\nmeasure q[{}] -> c[{}];".format(str(row), s.obj.r[0].s.row)  # measurement code
                     if s.obj.t == "Gate" or (s.obj.t in ["1st", "Ctrl"] and s.obj.s != s.obj.r[-1].s):
                         start_text = "\n{} "  # write in the opening text
@@ -440,6 +440,7 @@ class App(tk.Frame):  # build the actual app
 
             def create(nm):  # create the gate described
                 if nm in self.i_b:
+                    tk.Label(frame, text="Invalid Name").place(x=self.c*25, y=self.c*38)
                     return None
                 dta = "gate "+nm+" "+str(['q', 'r', 's', 't', 'u', 'v'][0:q_no])[1:][:-1].replace("'", "")+" {\n"
                 try:
@@ -505,8 +506,6 @@ class App(tk.Frame):  # build the actual app
 
         def new_mtrx(f, e, v):  # build the matrix itself
             def newgate(warn):  # build the official gate
-                if e["nm"].get() in self.i_b:
-                    return None
                 if warn is not None:
                     warn.destroy()
                 self.init["lyr"] += 1
@@ -524,6 +523,9 @@ class App(tk.Frame):  # build the actual app
                 self.rewrite_code()
                 f.destroy()
             try:
+                if e["nm"].get() in self.i_b:
+                    tk.Label(f, text="This name has already been used").place(x=self.c*4, y=self.c*14)
+                    return None
                 v["mtrx"] = []
                 for a in range(len(e["mtrx"])):
                     new_list = []
@@ -548,9 +550,9 @@ class App(tk.Frame):  # build the actual app
             rnge = self.cur['lyr']
         for i in range(rnge):
             if t in ["q", "c"]:
-                new, reverse_rows = row+1, list(range(row + 1, self.cur["q"] + self.cur["c"]))
+                reverse_rows = list(range(row+1, self.cur["q"]+self.cur["c"]))
                 if t == "c":
-                    new, reverse_rows = row, list(range(row+self.cur["q"], self.cur["q"]+self.cur["c"]))
+                    reverse_rows = list(range(row+self.cur["q"]+1, self.cur["q"]+self.cur["c"]))
                 reverse_rows.reverse()
                 for n in reverse_rows:
                     w_t, cur = "q", n
@@ -571,11 +573,13 @@ class App(tk.Frame):  # build the actual app
                         s.empty()
                         moving_obj.drag_end(s.row)
                         if w_t == "c":
-                            moving_obj.drag_end(s.row+self.cur["q"]+1)
+                            moving_obj.drag_end(s.row+self.cur["q"])
+                            if t == "q":
+                                moving_obj.drag_end(s.row+self.cur["q"]+1)
                         self.g_to_c = True
                 if i == 0:
-                    self.d['w'][t+str(new)] = Wire(self.f_d["g"]["f"], new, t)
-                self.d['s'][ind(t, new, i)] = Spot(new, i, t, self)
+                    self.d['w'][t+str(row+1)] = Wire(self.f_d["g"]["f"], row+1, t)
+                self.d['s'][ind(t, row+1, i)] = Spot(row+1, i, t, self)
             else:
                 w = "q"
                 if i >= self.cur["q"]:
@@ -631,7 +635,7 @@ class App(tk.Frame):  # build the actual app
                             obj.s.empty()
                         moving_obj.drag_end(s.row)
                         if w_t == "c":
-                            moving_obj.drag_end(s.row+self.cur["q"]-1)
+                            moving_obj.drag_end(s.row+self.cur["q"])
                         self.g_to_c = True
             elif t == "c":
                 for n in range(row+1, self.cur["c"]+1):
@@ -648,7 +652,7 @@ class App(tk.Frame):  # build the actual app
                         moving_obj, self.g_to_c = s.obj, False
                         for obj in [s.obj] + s.obj.r:
                             obj.s.empty()
-                        moving_obj.drag_end(s.row+self.cur["q"]-1)
+                        moving_obj.drag_end(s.row+self.cur["q"])
                         self.g_to_c = True
             else:
                 w = "q"

@@ -183,9 +183,10 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                             self.f.a.d['s'][ind(t, s.row, i)].full = True
                         gate_t = "Rec"
                     self.r += [Obj(self.f, self.k, self.d, gate_t, s, self.r+[self], self.r_no-1, self.cstm, self.ct)]
-                if self.d["prm"] and self.f.a.g_to_c and self.c == self.d["c"]:
+                if self.d["prm"] and self.f.a.g_to_c and self.c == self.d["c"] and not getattr(self, '_has_ent', False):
+                    self._has_ent = True # create only once
                     ent = tk.Entry(self.f, textvariable=tk.StringVar(self.f, value="θ"), bg=self.d["bg"])
-                    ent.place(x=s.x[0] + self.f.a.c, y=s.y[0] + 4 * self.f.a.c, w=10 * self.f.a.c)
+                    ent.place(in_=self.widget, relx=0, x=self.f.a.c, rely=0, y=7 * self.f.a.c, w=10 * self.f.a.c)
 
                     def get_param(entry):  # get the submitted parameter for the gate
                         ent_string = "("+entry.get()+")"
@@ -247,7 +248,7 @@ class App(tk.Frame):  # build the actual app
             self.f_d[frame]["f"].a = self
             self.f_d[frame]["f"].place(relheight=1.0, relwidth=0.8)
             self.f_d[frame]["b"] = tk.Frame(self.f_d[frame]["f"])  # b = box
-        self.f_d["c"]["f"].place(x=round(0.8*a.winfo_screenwidth()))
+        self.f_d["c"]["f"].place(relx=0.8)
         self.f_d["c"]["b"].grid(ipady=round(0.5*a.winfo_screenheight()), ipadx=round(0.1*a.winfo_screenwidth()))
         self.wire_canv = tk.Canvas(self.f_d["g"]["f"])
         self.code, self.bnk, self.g_to_c = tk.Text(self.f_d["c"]["f"], background="dark grey"), \
@@ -306,9 +307,9 @@ class App(tk.Frame):  # build the actual app
                             if len(s.obj.r) != 0 and item != s.obj.r[-1]:
                                 location_text = "q[{}], "  # save a qubit which is not last
                             c += location_text.format(str(item.s.row))
-                col += 1
-                if col == self.cur["lyr"]:
-                    row, col = row + 1, 0
+                row += 1
+                if row == self.cur["q"]:
+                    row, col = 0, col + 1
             self.code.delete(1.0, tk.END)
             self.code.insert(1.0, c)
             if final_layer >= self.cur['lyr'] - 1:

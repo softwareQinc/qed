@@ -103,104 +103,98 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
         self.widget.bind("<Double-Button-1>", lambda x: self.delete())  # double-clicking deletes the widget
 
     def drag_end(self, event):  # finish placing an object and have it snap to position
-        t, row, col = "q", 0, 0
-        if self.t == "Rec":
-            t = "c"
-        while row < self.f.a.cur[t] and col < self.f.a.cur["lyr"]:
-            if not self.f.a.g_to_c:
-                sel_y = 4 * (5 * event + 8) * self.f.a.c
-            elif self.last_s.t != "" and self.t != "Rec" and row == self.last_s.row:
-                row += 1
+        t = "c" if self.t == "Rec" else "q"
+        for row in range(self.f.a.cur[t]):
+            if self.last_s.t != "" and self.t != "Rec" and row == self.last_s.row:
                 continue  # skip over this row as it is invalid
-            else:
-                sel_y = self.widget.winfo_y()
-            s, read = self.f.a.d['s'][ind(t, row, col)], False  # assign spot, and currently not valid read
-            if self.t == "Read":
-                read = True
-                for i in range(col, self.f.a.cur["lyr"]):  # see if the spot is a valid place for a reader
-                    if self.f.a.d['s'][ind(t, row, i)].full:
-                        read = False
-            if ((self.t in ['Rec', '2nd', 'Target'] and col == self.r[0].s.col) or read or self.t in
-               ["Gate", "1st", "Ctrl"]) and sel_y in s.y and not s.full:
-                if not self.undragged:
-                    self.last_s.empty()
-                self.widget.place(x=s.x[0], y=s.y[0])  # place in generic current spot
-                s.full, s.obj, self.s = True, self, s  # mark the spot as filled, save obj and spot to each other
-                if len(self.r) != 0 and self.r[-1].t in ["Target", "2nd", "Rec"]:  # anything with prior placements
-                    for i in range(len(self.r)):
-                        self.r[i].widget.destroy()  # destroy previous target
-                        for n in range(len(self.r[i].lnks)):
-                            self.r[i].lnks[n].destroy()  # destroy previous links
-                        if self.t == "Read" and self.f.a.g_to_c:  # only for readers with prior placements
-                            if self.last_s is not None:
-                                for n in range(self.last_s.col, self.f.a.cur["lyr"]):
-                                    self.f.a.d['s'][ind(t, self.last_s.row, n)].empty()
-                                self.f.a.d['s'][self.r[i].s.k].empty()
-                        if self.t in ["Ctrl", "1st"]:  # only for controls and doubles with prior placements
-                            rows = range(s.row, self.r[i].s.row+1)
-                            if s.row > self.r[i].s.row:
-                                rows = range(self.r[i].s.row, s.row+1)
-                            for n in rows:
-                                self.f.a.d['s'][ind(t, n, self.r[i].s.col)].empty()
-                    self.r = []
-                if self.t in ["Target", "2nd", "Rec"]:  # if it is the second, attach and place
-                    if self.lnks == []:
-                        self.lnks = [tk.Label(self.f, background="dark grey")]  # build the link
-                    self.lnks[0].place(x=self.r[0].s.x[0]+6*self.f.a.c, y=self.r[0].s.y[0]+12*self.f.a.c, w=2,
-                                       h=abs(self.r[0].s.y[0]-s.y[0])-10*self.f.a.c)
-                    if self.t != "Rec":  # control and target changes
-                        for i in range(self.r[-1].s.row + 1, s.row):  # keep between empty
-                            self.f.a.d['s'][ind(t, i, s.col)].full = True
-                        if self.t == "Target":
-                            self.widget.place(x=s.x[0]+2*self.f.a.c, y=s.y[0]+2*self.f.a.c)
-                            if row < self.r[-1].s.row:
-                                self.lnks[0].place(y=s.y[0] + 10 * self.f.a.c)
-                        elif self.t == "2nd":
-                            self.lnks[0].place(h=abs(self.r[-1].s.y[0]-s.y[0])-12*self.f.a.c)
-                            if row < self.r[-1].s.row:
-                                self.lnks[0].place(y=s.y[0]+12*self.f.a.c)
-                            if self.r_no > 1:
-                                nw = Obj(self.f, self.k, self.d, "2nd", s, self.r+[self], self.r_no-1, self.cstm,
-                                         self.ct)
-                                for obj in self.r:
-                                    obj.r += [nw]
-                                self.r += [nw]
-                    else:  # attach links and shift receptor properly
-                        if len(self.lnks) == 1:
-                            self.lnks += [tk.Label(self.f, bg="dark grey")]
-                        for i in range(len(self.lnks)):
-                            self.lnks[i].place(x=self.r[0].s.x[0]+10*self.f.a.c+5*i, y=self.r[0].s.y[0]+10*self.f.a.c,
-                                               h=abs(s.y[0]-self.r[0].s.y[0])-8*self.f.a.c, w=2)
-                            self.widget.place(x=self.last_s.x[0] + 4 * self.f.a.c, y=s.y[0] + 2 * self.f.a.c)
-                self.undragged = False
-                if self.t in ["Ctrl", "Read", "1st"]:
-                    gate_t = "2nd"
-                    if self.t == "Ctrl":
-                        gate_t = "Target"
-                    if self.t == "Read":
-                        self.widget.place(y=s.y[0] + 2 * self.f.a.c)
-                        for i in range(s.col, self.f.a.cur["lyr"]):
-                            self.f.a.d['s'][ind(t, s.row, i)].full = True
-                        gate_t = "Rec"
-                    self.r += [Obj(self.f, self.k, self.d, gate_t, s, self.r+[self], self.r_no-1, self.cstm, self.ct)]
-                if self.d["prm"] and self.f.a.g_to_c and self.c == self.d["c"] and not getattr(self, '_has_ent', False):
-                    self._has_ent = True # create only once
-                    ent = tk.Entry(self.f, textvariable=tk.StringVar(self.f, value="θ"), bg=self.d["bg"])
-                    ent.place(in_=self.widget, relx=0, x=self.f.a.c, rely=0, y=7 * self.f.a.c, w=10 * self.f.a.c)
+            for col in range(self.f.a.cur["lyr"]):
+                sel_y = self.widget.winfo_y() if self.f.a.g_to_c else 4 * (5 * event + 8) * self.f.a.c
+                s, read = self.f.a.d['s'][ind(t, row, col)], False  # assign spot, and currently not valid read
+                if self.t == "Read":
+                    read = True
+                    for i in range(col, self.f.a.cur["lyr"]):  # see if the spot is a valid place for a reader
+                        if self.f.a.d['s'][ind(t, row, i)].full:
+                            read = False
+                if ((self.t in ['Rec', '2nd', 'Target'] and col == self.r[0].s.col) or read or self.t in
+                   ["Gate", "1st", "Ctrl"]) and sel_y in s.y and not s.full:
+                    if not self.undragged:
+                        self.last_s.empty()
+                    self.widget.place(x=s.x[0], y=s.y[0])  # place in generic current spot
+                    s.full, s.obj, self.s = True, self, s  # mark the spot as filled, save obj and spot to each other
+                    if len(self.r) != 0 and self.r[-1].t in ["Target", "2nd", "Rec"]:  # anything with prior placements
+                        for i in range(len(self.r)):
+                            self.r[i].widget.destroy()  # destroy previous target
+                            for n in range(len(self.r[i].lnks)):
+                                self.r[i].lnks[n].destroy()  # destroy previous links
+                            if self.t == "Read" and self.f.a.g_to_c:  # only for readers with prior placements
+                                if self.last_s is not None:
+                                    for n in range(self.last_s.col, self.f.a.cur["lyr"]):
+                                        self.f.a.d['s'][ind(t, self.last_s.row, n)].empty()
+                                    self.f.a.d['s'][self.r[i].s.k].empty()
+                            if self.t in ["Ctrl", "1st"]:  # only for controls and doubles with prior placements
+                                rows = range(s.row, self.r[i].s.row+1)
+                                if s.row > self.r[i].s.row:
+                                    rows = range(self.r[i].s.row, s.row+1)
+                                for n in rows:
+                                    self.f.a.d['s'][ind(t, n, self.r[i].s.col)].empty()
+                        self.r = []
+                    if self.t in ["Target", "2nd", "Rec"]:  # if it is the second, attach and place
+                        if self.lnks == []:
+                            self.lnks = [tk.Label(self.f, background="dark grey")]  # build the link
+                        self.lnks[0].place(x=self.r[0].s.x[0]+6*self.f.a.c, y=self.r[0].s.y[0]+12*self.f.a.c, w=2,
+                                           h=abs(self.r[0].s.y[0]-s.y[0])-10*self.f.a.c)
+                        if self.t != "Rec":  # control and target changes
+                            for i in range(self.r[-1].s.row + 1, s.row):  # keep between empty
+                                self.f.a.d['s'][ind(t, i, s.col)].full = True
+                            if self.t == "Target":
+                                self.widget.place(x=s.x[0]+2*self.f.a.c, y=s.y[0]+2*self.f.a.c)
+                                if row < self.r[-1].s.row:
+                                    self.lnks[0].place(y=s.y[0] + 10 * self.f.a.c)
+                            elif self.t == "2nd":
+                                self.lnks[0].place(h=abs(self.r[-1].s.y[0]-s.y[0])-12*self.f.a.c)
+                                if row < self.r[-1].s.row:
+                                    self.lnks[0].place(y=s.y[0]+12*self.f.a.c)
+                                if self.r_no > 1:
+                                    nw = Obj(self.f, self.k, self.d, "2nd", s, self.r+[self], self.r_no-1, self.cstm,
+                                             self.ct)
+                                    for obj in self.r:
+                                        obj.r += [nw]
+                                    self.r += [nw]
+                        else:  # attach links and shift receptor properly
+                            if len(self.lnks) == 1:
+                                self.lnks += [tk.Label(self.f, bg="dark grey")]
+                            for i in range(len(self.lnks)):
+                                self.lnks[i].place(x=self.r[0].s.x[0]+10*self.f.a.c+5*i,
+                                                   y=self.r[0].s.y[0]+10*self.f.a.c,
+                                                   h=abs(s.y[0]-self.r[0].s.y[0])-8*self.f.a.c, w=2)
+                                self.widget.place(x=self.last_s.x[0] + 4 * self.f.a.c, y=s.y[0] + 2 * self.f.a.c)
+                    self.undragged = False
+                    if self.t in ["Ctrl", "Read", "1st"]:
+                        gate_t = "2nd"
+                        if self.t == "Ctrl":
+                            gate_t = "Target"
+                        if self.t == "Read":
+                            self.widget.place(y=s.y[0] + 2 * self.f.a.c)
+                            for i in range(s.col, self.f.a.cur["lyr"]):
+                                self.f.a.d['s'][ind(t, s.row, i)].full = True
+                            gate_t = "Rec"
+                        self.r += [Obj(self.f, self.k, self.d, gate_t, s, self.r+[self], self.r_no-1, self.cstm,
+                                       self.ct)]
+                    if self.d["prm"] and self.f.a.g_to_c and self.c == self.d["c"] and not getattr(self, '_has_ent',
+                                                                                                   False):
+                        self._has_ent = True # create only once
+                        ent = tk.Entry(self.f, textvariable=tk.StringVar(self.f, value="θ"), bg=self.d["bg"])
+                        ent.place(in_=self.widget, relx=0, x=self.f.a.c, rely=0, y=7 * self.f.a.c, w=10 * self.f.a.c)
 
-                    def get_param(entry):  # get the submitted parameter for the gate
-                        ent_string = "("+entry.get()+")"
-                        self.c, self.widget["text"] = self.d["c"]+ent_string, self.k[0:self.k.index("(")]+ent_string
-                        self.f.a.rewrite_code()
-                        entry.destroy()
-                    ent.bind('<Return>', lambda x: get_param(ent))
-                    return  # cut short to avoid no theta being written into the code
-                self.f.a.rewrite_code()  # rewrite the code
-                return  # once it happens once, end the function's call
-            else:
-                col += 1
-                if col == self.f.a.cur["lyr"]:
-                    row, col = row + 1, 0
+                        def get_param(entry):  # get the submitted parameter for the gate
+                            ent_string = "("+entry.get()+")"
+                            self.c, self.widget["text"] = self.d["c"]+ent_string, self.k[0:self.k.index("(")]+ent_string
+                            self.f.a.rewrite_code()
+                            entry.destroy()
+                        ent.bind('<Return>', lambda x: get_param(ent))
+                        return  # cut short to avoid no theta being written into the code
+                    self.f.a.rewrite_code()  # rewrite the code
+                    return  # once it happens once, end the function's call
         self.widget.place(x=self.last_s.x[0], y=self.last_s.y[0])  # standard placement for the returnable
         if self.undragged and not (self.t in ["Target", "Rec", "2nd"]):
             self.widget.destroy()  # destroy if it's the first drag to avoid too many gates
@@ -290,26 +284,24 @@ class App(tk.Frame):  # build the actual app
             for g in self.i_b:
                 if self.i_b[g].cstm:
                     c += self.i_b[g].d["def"]  # insert custom gate definition
-            col = row = final_layer = 0
-            while col < self.cur['lyr'] and row < self.cur["q"]:
-                s = self.d['s'][ind("q", row, col)]
-                if s.full and s.obj is not None:  # only add if filled
-                    final_layer = col  # save the final layer used to check if some can be deleted
-                    if s.obj.t == "Read" and s.obj.r[0].s is not None and s.obj.r[0].s.t == "c":
-                        c += "\nmeasure q[{}] -> c[{}];".format(str(row), s.obj.r[0].s.row)  # measurement code
-                    if s.obj.t == "Gate" or (s.obj.t in ["1st", "Ctrl"] and s.obj.s != s.obj.r[-1].s):
-                        start_text = "\n{} "  # write in the opening text
-                        if s.obj.ct == "mtrx":
-                            start_text = "\n// pragma custom_gate_action {} "  # save custom action text
-                        c += start_text.format(s.obj.c)
-                        for item in ([s.obj] + s.obj.r):
-                            location_text = "q[{}]; "  # save final qubit
-                            if len(s.obj.r) != 0 and item != s.obj.r[-1]:
-                                location_text = "q[{}], "  # save a qubit which is not last
-                            c += location_text.format(str(item.s.row))
-                row += 1
-                if row == self.cur["q"]:
-                    row, col = 0, col + 1
+            final_layer = 0
+            for col in range(self.cur['lyr']):
+                for row in range(self.cur["q"]):
+                    s = self.d['s'][ind("q", row, col)]
+                    if s.full and s.obj is not None:  # only add if filled
+                        final_layer = col  # save the final layer used to check if some can be deleted
+                        if s.obj.t == "Read" and s.obj.r[0].s is not None and s.obj.r[0].s.t == "c":
+                            c += "\nmeasure q[{}] -> c[{}];".format(str(row), s.obj.r[0].s.row)  # measurement code
+                        if s.obj.t == "Gate" or (s.obj.t in ["1st", "Ctrl"] and s.obj.s != s.obj.r[-1].s):
+                            start_text = "\n{} "  # write in the opening text
+                            if s.obj.ct == "mtrx":
+                                start_text = "\n// pragma custom_gate_action {} "  # save custom action text
+                            c += start_text.format(s.obj.c)
+                            for item in ([s.obj] + s.obj.r):
+                                location_text = "q[{}]; "  # save final qubit
+                                if len(s.obj.r) != 0 and item != s.obj.r[-1]:
+                                    location_text = "q[{}], "  # save a qubit which is not last
+                                c += location_text.format(str(item.s.row))
             self.code.delete(1.0, tk.END)
             self.code.insert(1.0, c)
             if final_layer >= self.cur['lyr'] - 1:

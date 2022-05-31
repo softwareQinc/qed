@@ -122,21 +122,21 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                     self.widget.place(x=s.x[0], y=s.y[0])  # place in generic current spot
                     s.full, s.obj, self.s = True, self, s  # mark the spot as filled, save obj and spot to each other
                     if len(self.r) != 0 and self.r[-1].t in ["Target", "2nd", "Rec"]:  # anything with prior placements
-                        for i in range(len(self.r)):
-                            self.r[i].widget.destroy()  # destroy previous target
-                            for n in range(len(self.r[i].lnks)):
-                                self.r[i].lnks[n].destroy()  # destroy previous links
+                        for r in self.r:
+                            r.widget.destroy()  # destroy previous target
+                            for lnk in r.lnks:
+                                lnk.destroy()  # destroy previous links
                             if self.t == "Read" and self.f.a.g_to_c:  # only for readers with prior placements
                                 if self.last_s is not None:
                                     for n in range(self.last_s.col, self.f.a.cur["lyr"]):
                                         self.f.a.d['s'][ind(t, self.last_s.row, n)].empty()
-                                    self.f.a.d['s'][self.r[i].s.k].empty()
+                                    self.f.a.d['s'][r.s.k].empty()
                             if self.t in ["Ctrl", "1st"]:  # only for controls and doubles with prior placements
-                                rows = range(s.row, self.r[i].s.row+1)
-                                if s.row > self.r[i].s.row:
-                                    rows = range(self.r[i].s.row, s.row+1)
+                                rows = range(s.row, r.s.row+1)
+                                if s.row > r.s.row:
+                                    rows = range(r.s.row, s.row+1)
                                 for n in rows:
-                                    self.f.a.d['s'][ind(t, n, self.r[i].s.col)].empty()
+                                    self.f.a.d['s'][ind(t, n, r.s.col)].empty()
                         self.r = []
                     if self.t in ["Target", "2nd", "Rec"]:  # if it is the second, attach and place
                         if self.lnks == []:
@@ -158,15 +158,14 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                                     nw = Obj(self.f, self.k, self.d, "2nd", s, self.r+[self], self.r_no-1, self.cstm,
                                              self.ct)
                                     for obj in self.r:
-                                        obj.r += [nw]
-                                    self.r += [nw]
+                                        obj.r.append(nw)
+                                    self.r.append(nw)
                         else:  # attach links and shift receptor properly
                             if len(self.lnks) == 1:
-                                self.lnks += [tk.Label(self.f, bg="dark grey")]
-                            for i in range(len(self.lnks)):
-                                self.lnks[i].place(x=self.r[0].s.x[0]+10*self.f.a.c+5*i,
-                                                   y=self.r[0].s.y[0]+10*self.f.a.c,
-                                                   h=abs(s.y[0]-self.r[0].s.y[0])-8*self.f.a.c, w=2)
+                                self.lnks.append(tk.Label(self.f, bg="dark grey"))
+                            for lnk in self.lnks:
+                                lnk.place(x=self.r[0].s.x[0]+10*self.f.a.c+5*i, y=self.r[0].s.y[0]+10*self.f.a.c,
+                                          h=abs(s.y[0]-self.r[0].s.y[0])-8*self.f.a.c, w=2)
                                 self.widget.place(x=self.last_s.x[0] + 4 * self.f.a.c, y=s.y[0] + 2 * self.f.a.c)
                     self.undragged = False
                     if self.t in ["Ctrl", "Read", "1st"]:
@@ -178,8 +177,8 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                             for i in range(s.col, self.f.a.cur["lyr"]):
                                 self.f.a.d['s'][ind(t, s.row, i)].full = True
                             gate_t = "Rec"
-                        self.r += [Obj(self.f, self.k, self.d, gate_t, s, self.r+[self], self.r_no-1, self.cstm,
-                                       self.ct)]
+                        self.r.append(Obj(self.f, self.k, self.d, gate_t, s, self.r+[self], self.r_no-1, self.cstm,
+                                          self.ct))
                     if self.d["prm"] and self.f.a.g_to_c and self.c == self.d["c"] and not getattr(self, '_has_ent',
                                                                                                    False):
                         self._has_ent = True # create only once
@@ -349,8 +348,9 @@ class App(tk.Frame):  # build the actual app
                                             ent = cd.get(cd.search(" ", v)+"+1c", cd.search("]", v)).strip("]")
                                         else:
                                             ent = cd.get(cd.search(" ", v)+"+1c", cd.search("j", v)+"+1c")
-                                        lst, v = lst + [complex(ent)], cd.search("j", v)
-                                    mtrx += [lst]
+                                        lst.append(complex(ent))
+                                        v = cd.search("j", v)
+                                    mtrx.append(lst)
                                 self.i_b[k].d["mtrx"], self.i_b[k].d["def"] = np.array(mtrx), \
                                     "\n// pragma custom_gate_matrix {}\n// {}\n\n".format(k, str(np.array(mtrx)).
                                                                                           replace('\n', '\n// '))
@@ -484,17 +484,17 @@ class App(tk.Frame):  # build the actual app
         def new_n(f, e, v):  # build the matrix grid for entering the values
             v["n"] = int(e["n"].get())
             if e["mtrx"] is not None:
-                for i in range(len(e["mtrx"])):
-                    for n in range(len(e["mtrx"][i])):
-                        e["mtrx"][i][n].destroy()
+                for x in e["mtrx"]:
+                    for y in x:
+                        y.destroy()
             e["mtrx"] = []
             if v["n"] <= self.cur['q']:
                 for a in range(2 ** v["n"]):
                     new_list = []
                     for b in range(2 ** v["n"]):
-                        new_list += [tk.Entry(f)]
+                        new_list.append(tk.Entry(f))
                         new_list[-1].place(x=self.c*(3+8*b), y=self.c*(18+8*a), w=self.c*8, h=self.c*8)
-                    ets["mtrx"] += [new_list]
+                    ets["mtrx"].append(new_list)
         tk.Button(fr, text="Submit n", command=lambda: new_n(fr, ets, vs)).place(x=self.c * 17, y=self.c * 2)
 
         def new_mtrx(f, e, v):  # build the matrix itself
@@ -520,11 +520,11 @@ class App(tk.Frame):  # build the actual app
                     tk.Label(f, text="This name has already been used").place(x=self.c*4, y=self.c*14)
                     return None
                 v["mtrx"] = []
-                for a in range(len(e["mtrx"])):
+                for x in e["mtrx"]:
                     new_list = []
-                    for b in range(len(e["mtrx"][a])):
-                        new_list += [complex(e["mtrx"][a][b].get().replace(" ", ""))]
-                    v["mtrx"] += [new_list]
+                    for y in x:
+                        new_list.append(complex(y.get().replace(" ", "")))
+                    v["mtrx"].append(new_list)
                 if np.linalg.norm(np.array(v["mtrx"]).transpose().conjugate()-np.identity(2 ** v["n"])) < 1*10**(-14):
                     newgate(None)
                 else:

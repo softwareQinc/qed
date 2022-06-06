@@ -589,6 +589,7 @@ class App(tk.Frame):  # build the actual app
                             (t in ('q', 'c') and self.d['s'][ind(t, row, i)].full):
                         return
         self.cur[t] -= 1
+        need_to_drag = []
         for i in range(rnge):
             if t in ('q', 'c'):
                 if i == 0:  # destroy the physical widget pieces
@@ -615,13 +616,10 @@ class App(tk.Frame):  # build the actual app
                         self.d['s'][ind(w_t, cur-1, i)], s.k, s.row = s, ind(w_t, cur-1, i), cur-1
                         self.d['s'].pop(ind(w_t, cur, i))
                     if s.full and s.obj is not None:  # place the objects
-                        moving_obj, self.g_to_c = s.obj, False
-                        for obj in [s.obj] + s.obj.r:
-                            obj.s.empty()
-                        moving_obj.drag_end(s.row)
                         if w_t == 'c':
-                            moving_obj.drag_end(s.row+self.cur['q'])
-                        self.g_to_c = True
+                            need_to_drag.append([s.obj, s.row+self.cur['q']])
+                        else:
+                            need_to_drag.append([s.obj, s.row])
             elif t == 'c':
                 for n in range(row+1, self.cur['c']+1):
                     if i == 0:
@@ -634,16 +632,19 @@ class App(tk.Frame):  # build the actual app
                     self.d['s'][ind('c', n-1, i)], s.k, s.row = s, ind('c', n-1, i), n-1
                     self.d['s'].pop(ind('c', n, i))
                     if s.full and s.obj is not None:  # place the objects
-                        moving_obj, self.g_to_c = s.obj, False
-                        for obj in [s.obj] + s.obj.r:
-                            obj.s.empty()
-                        moving_obj.drag_end(s.row+self.cur['q'])
-                        self.g_to_c = True
+                        need_to_drag.append([s.obj, s.row+self.cur['q']])
             else:
                 w = 'q'
                 if i >= self.cur['q']:
                     w, i = 'c', i-self.cur['q']
                 self.d['s'].pop(ind(w, i, self.cur[t]))  # delete the spots on layers that are being deleted
+        self.g_to_c = False
+        for moving_obj, r in need_to_drag:
+            for obj in [moving_obj] + moving_obj.r:
+                obj.s.empty()
+            if moving_obj.widget.winfo_exists():
+                moving_obj.drag_end(r)
+        self.g_to_c = True
         self.rewrite_code()
 
 

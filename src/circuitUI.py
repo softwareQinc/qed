@@ -79,7 +79,8 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
         if type in ('Rec', 'Read'):
             self.widget = tk.Label(frame, text=self.k, relief='ridge', borderwidth=5)  # build the label
         else:
-            self.widget = tk.Label(frame, text=self.k, background=self.d['bg'], relief='raised')  # build the label
+            self.widget = tk.Label(frame, text=self.k, background=self.d['bg'], relief='raised',
+                                   wraplength=11 * self.f.a.c)  # build the label
         self.widget.place(x=spot.x[0], y=spot.y[0], h=12 * self.f.a.c, w=12 * self.f.a.c)  # standard
         if type in ('Target', 'Rec', 'Read'):  # other placements
             self.widget.place(h=8*self.f.a.c)  # adjust placement for reader
@@ -161,9 +162,10 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                         else:  # attach links and shift receptor properly
                             if len(self.lnks) == 1:
                                 self.lnks.append(tk.Label(self.f, bg='dark grey'))
-                            for lnk in self.lnks:
-                                lnk.place(x=self.r[0].s.x[0]+10*self.f.a.c+5*i, y=self.r[0].s.y[0]+10*self.f.a.c,
-                                          h=abs(s.y[0]-self.r[0].s.y[0])-8*self.f.a.c, w=2)
+                            for i in range(len(self.lnks)):
+                                self.lnks[i].place(x=self.r[0].s.x[0]+10*self.f.a.c+5*i,
+                                                   y=self.r[0].s.y[0]+10*self.f.a.c,
+                                                   h=abs(s.y[0]-self.r[0].s.y[0])-8*self.f.a.c, w=2)
                                 self.widget.place(x=self.last_s.x[0] + 4 * self.f.a.c, y=s.y[0] + 2 * self.f.a.c)
                     self.undragged = False
                     if self.t in ('Ctrl', 'Read', '1st'):
@@ -177,11 +179,10 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                             gate_t = 'Rec'
                         self.r.append(Obj(self.f, self.k, self.d, gate_t, s, self.r+[self], self.r_no-1, self.cstm,
                                           self.ct))
-                    if self.d['prm'] and self.f.a.g_to_c and self.c == self.d['c'] and not getattr(self, '_has_ent',
-                                                                                                   False):
-                        self._has_ent = True # create only once
-                        ent = tk.Entry(self.f, textvariable=tk.StringVar(self.f, value="θ"), bg=self.d['bg'])
-                        ent.place(in_=self.widget, relx=0, x=self.f.a.c, rely=0, y=7 * self.f.a.c, w=10 * self.f.a.c)
+                    if self.d['prm'] and self.f.a.g_to_c and self.c == self.d['c'] and \
+                            len(self.widget.winfo_children()) == 0:
+                        ent = tk.Entry(self.widget, textvariable=tk.StringVar(self.f, value="θ"), bg=self.d['bg'])
+                        ent.place(relx=0.5, rely=0.8, anchor='center', w=10 * self.f.a.c)
 
                         def get_param(entry):  # get the submitted parameter for the gate
                             ent_string = "("+entry.get()+")"
@@ -533,9 +534,7 @@ class App(tk.Frame):  # build the actual app
         tk.Button(fr, text="Create", command=lambda: new_mtrx(fr, ets, vs)).place(x=self.c * 30, y=self.c * 2)
 
     def add(self, t, row):  # add a new row below the row where the button was clicked
-        rnge = self.cur['q'] + self.cur['c']
-        if t in ('q', 'c'):
-            rnge = self.cur['lyr']
+        rnge = self.cur['lyr'] if t in ('q', 'c') else self.cur['q'] + self.cur['c']
         for i in range(rnge):
             if t in ('q', 'c'):
                 reverse_rows = list(range(row+1, self.cur['q']+self.cur['c']))
@@ -583,9 +582,7 @@ class App(tk.Frame):  # build the actual app
         if self.cur[t] <= self.init[t]:  # don't delete the final one of either qubits or bits
             return
         else:
-            rnge = max(self.cur['q'], self.cur['c'])
-            if t in ('q', 'c'):
-                rnge = self.cur['lyr']
+            rnge = self.cur['lyr'] if t in ('q', 'c') else max(self.cur['q'], self.cur['c'])
             for i in range(rnge):  # only delete if empty
                 for p in ('q', 'c'):
                     if (t == 'lyr' and i < self.cur[p] and self.d['s'][ind(p, i, self.cur[t]-1)].obj is not None) or \

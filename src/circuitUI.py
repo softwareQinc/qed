@@ -198,27 +198,33 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                 continue  # skip over this row as it is invalid
             for col in range(self.f.a.cur['lyr']):
                 sel_y, sel_x = self.widget.winfo_y(), self.widget.winfo_x()
-                s = self.f.a.d['s'][ind(t, row, col)]
-                if not s.full and sel_y in s.y and sel_x < s.x[-1]:
+                s, read = self.f.a.d['s'][ind(t, row, col)], False  # assign spot, and currently not valid read
+                if self.t == 'Read':
+                    read = True
+                    for i in range(col, self.f.a.cur['lyr']):  # see if the spot is a valid place for a reader
+                        if self.f.a.d['s'][ind(t, row, i)].full:
+                            read = False
+                if ((self.t in ('Rec', '2nd', 'Target') and col == self.r[0].s.col) or read or self.t in
+                    ('Gate', '1st', 'Ctrl')) and sel_y in s.y and (self.t in ('Rec', '2nd', 'Target') or
+                                                                   sel_x <= s.x[-1]) and not s.full:
                     target_row, target_col = row, col
                     break
         if target_row is not None and target_col is not None:
             s = self.f.a.d['s'][ind(t, target_row, target_col)]
-            while target_col > 0:
-                if (self.t in ('Rec', '2nd', 'Target') and target_col == self.r[0].s.col) or \
-                        (self.t in ('1st', 'Ctrl') and len(self.r) > 0 and target_col == self.r[-1].s.col):
-                    break
-                possible_spot = self.f.a.d['s'][ind(t, target_row, target_col-1)]
-                if possible_spot.full:
-                    break
-                s = possible_spot
-                target_col -= 1
-            was_undragged = self.undragged
-            self.s.empty()
+            if self.t not in ('Rec', '2nd', 'Target'):
+                while target_col > 0:
+                    if self.t in ('1st', 'Ctrl') and len(self.r) > 0 and target_col == self.r[-1].s.col:
+                        break
+                    possible_spot = self.f.a.d['s'][ind(t, target_row, target_col-1)]
+                    if possible_spot.full:
+                        break
+                    s = possible_spot
+                    target_col -= 1
+            old_row, old_col = self.s.row, self.s.col
             self.place(s)
-            if not was_undragged and self.t in ('1st', 'Ctrl'):
+            if self.t in ('1st', 'Ctrl'):
                 for r in self.r: # replace with undragged link, if any
-                    if r.undragged:
+                    if r.s.row == old_row and r.s.col == old_col:
                         r.place(r.s)
                         break
             if self.d['prm'] and self.f.a.g_to_c and self.c == self.d['c'] and len(

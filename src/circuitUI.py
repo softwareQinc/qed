@@ -724,8 +724,6 @@ class App(tk.Frame):  # build the actual app
                 if i >= self.cur['q']:
                     w, i = 'c', i-self.cur['q']
                 self.d['s'].pop(ind(w, i, self.cur[t]))  # delete the spots on layers that are being deleted
-        self.g_to_c = False
-        self.g_to_c = True
         self.rewrite_code()
 
 

@@ -100,7 +100,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
             self.widget.place(x=event.widget.winfo_x()-event.widget._drag_start_x+event.x,
                               y=event.widget.winfo_y()-event.widget._drag_start_y+event.y)  # use co-ord fix
         self.widget.bind('<B1-Motion>', on_drag_motion)  # dragging enables drag motion
-        self.widget.bind('<ButtonRelease-1>', self.drag_end)  # releasing the mouse (even after one click)
+        self.widget.bind('<ButtonRelease-1>', self.drag_end_action)  # releasing the mouse (even after one click)
         self.widget.bind('<Double-Button-1>', lambda _: self.delete())  # double-clicking deletes the widget
 
     def place_links(self):
@@ -190,13 +190,70 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                 for r in self.r:
                     r.place_links()
 
+    def drag_end_action(self, event):  # finish placing an object and have it snap to position
+        t = 'c' if self.t == 'Rec' else 'q'
+        target_row, target_col = None, None
+        for row in range(self.f.a.cur[t]):
+            if self.last_s.t != '' and self.t != 'Rec' and row == self.last_s.row:
+                continue  # skip over this row as it is invalid
+            for col in range(self.f.a.cur['lyr']):
+                sel_y, sel_x = self.widget.winfo_y(), self.widget.winfo_x()
+                s = self.f.a.d['s'][ind(t, row, col)]
+                if not s.full and sel_y in s.y and sel_x < s.x[-1]:
+                    target_row, target_col = row, col
+                    break
+        if target_row is not None and target_col is not None:
+            s = self.f.a.d['s'][ind(t, target_row, target_col)]
+            while target_col > 0:
+                if (self.t in ('Rec', '2nd', 'Target') and target_col == self.r[0].s.col) or \
+                        (self.t in ('1st', 'Ctrl') and len(self.r) > 0 and target_col == self.r[-1].s.col):
+                    break
+                possible_spot = self.f.a.d['s'][ind(t, target_row, target_col-1)]
+                if possible_spot.full:
+                    break
+                s = possible_spot
+                target_col -= 1
+            was_undragged = self.undragged
+            self.s.empty()
+            self.place(s)
+            if not was_undragged and self.t in ('1st', 'Ctrl'):
+                for r in self.r: # replace with undragged link, if any
+                    if r.undragged:
+                        r.place(r.s)
+                        break
+            if self.d['prm'] and self.f.a.g_to_c and self.c == self.d['c'] and len(
+                    self.widget.winfo_children()) == 0:
+                ent = tk.Entry(self.widget, textvariable=tk.StringVar(self.f, value="θ"), bg=self.d['bg'])
+                ent.place(relx=0.5, rely=0.8, anchor='center', w=10 * self.f.a.c)
+
+                def get_param(entry):  # get the submitted parameter for the gate
+                    ent_string = "(" + entry.get() + ")"
+                    self.c, self.widget['text'] = self.d['c'] + ent_string, self.k[
+                                                                            0:self.k.index("(")] + ent_string
+                    self.f.a.rewrite_code()
+                    entry.destroy()
+
+                ent.bind('<Return>', lambda _: get_param(ent))
+                return  # cut short to avoid no theta being written into the code
+            self.f.a.rewrite_code()  # rewrite the code
+            return  # once it happens once, end the function's call
+        self.widget.place(x=self.last_s.x[0], y=self.last_s.y[0])  # standard placement for the returnable
+        if self.undragged and not (self.t in ('Target', 'Rec', '2nd')):
+            self.widget.destroy()  # destroy if it's the first drag to avoid too many gates
+        elif self.t in ('Target', 'Rec', 'Read'):
+            self.widget.place(y=self.last_s.y[0]+2*self.f.a.c)
+            if self.t == 'Target':  # target size
+                self.widget.place(x=self.last_s.x[0]+2*self.f.a.c)
+            if self.t == 'Rec':
+                self.widget.place(x=self.last_s.x[0]+4*self.f.a.c)
+
     def drag_end(self, event):  # finish placing an object and have it snap to position
         t = 'c' if self.t == 'Rec' else 'q'
         for row in range(self.f.a.cur[t]):
             if self.last_s.t != '' and self.t != 'Rec' and row == self.last_s.row:
                 continue  # skip over this row as it is invalid
             for col in range(self.f.a.cur['lyr']):
-                sel_y = self.widget.winfo_y() if self.f.a.g_to_c else 4 * (5 * event + 8) * self.f.a.c
+                sel_y = 4 * (5 * event + 8) * self.f.a.c
                 s, read = self.f.a.d['s'][ind(t, row, col)], False  # assign spot, and currently not valid read
                 if self.t == 'Read':
                     read = True

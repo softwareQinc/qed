@@ -103,6 +103,93 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
         self.widget.bind('<ButtonRelease-1>', self.drag_end)  # releasing the mouse (even after one click)
         self.widget.bind('<Double-Button-1>', lambda _: self.delete())  # double-clicking deletes the widget
 
+    def place_links(self):
+        if len(self.lnks) == 0:
+            self.lnks = [tk.Label(self.f, background='dark grey')]  # build the link
+        self.lnks[0].place(x=self.r[0].s.x[0] + 6 * self.f.a.c, y=self.r[0].s.y[0] + 12 * self.f.a.c, w=2,
+                           h=abs(self.r[0].s.y[0] - self.s.y[0]) - 10 * self.f.a.c)
+        if self.t != 'Rec':  # control and target changes
+            if self.t == 'Target':
+                if self.s.row < self.r[-1].s.row:
+                    self.lnks[0].place(y=self.s.y[0] + 10 * self.f.a.c)
+            elif self.t == '2nd':
+                self.lnks[0].place(h=abs(self.r[-1].s.y[0] - self.s.y[0]) - 12 * self.f.a.c)
+                if self.s.row < self.r[-1].s.row:
+                    self.lnks[0].place(y=self.s.y[0] + 12 * self.f.a.c)
+        else:  # attach links and shift receptor properly
+            if len(self.lnks) == 1:
+                self.lnks.append(tk.Label(self.f, bg='dark grey'))
+            for i in range(len(self.lnks)):
+                self.lnks[i].place(x=self.r[0].s.x[0] + 10 * self.f.a.c + 5 * i,
+                                   y=self.r[0].s.y[0] + 10 * self.f.a.c,
+                                   h=abs(self.s.y[0] - self.r[0].s.y[0]) - 8 * self.f.a.c, w=2)
+
+    def place(self, s):
+        assert not s.full, "Can't place in a spot that's already filled"
+
+        t = 'c' if self.t == 'Rec' else 'q'
+        if not self.undragged:
+            self.last_s.empty()
+        self.widget.place(x=s.x[0], y=s.y[0])  # place in generic current spot
+        s.full, s.obj, self.s = True, self, s  # mark the spot as filled, save obj and spot to each other
+        reset_prior_placements = self.undragged
+        for r in self.r: # if any prior placements are in a different column, then reset all of them
+            if r.s.col != s.col:
+                reset_prior_placements = True
+        if len(self.r) != 0 and self.r[-1].t in ('Target', '2nd', 'Rec'):  # anything with prior placements
+            if reset_prior_placements:
+                for r in self.r:
+                    r.widget.destroy()  # destroy previous target
+                    for lnk in r.lnks:
+                        lnk.destroy()  # destroy previous links
+                    if self.t == 'Read' and self.f.a.g_to_c:  # only for readers with prior placements
+                        if self.last_s is not None:
+                            for n in range(self.last_s.col, self.f.a.cur['lyr']):
+                                self.f.a.d['s'][ind(t, self.last_s.row, n)].empty()
+                            self.f.a.d['s'][r.s.k].empty()
+                    if self.t in ('Ctrl', '1st'):  # only for controls and doubles with prior placements
+                        rows = range(r.s.row, s.row + 1) if s.row > r.s.row else range(s.row, r.s.row + 1)
+                        for n in rows:
+                            self.f.a.d['s'][ind(t, n, r.s.col)].empty()
+                self.r = []
+        if self.t in ('Target', '2nd', 'Rec'):  # if it is the second, attach and place
+            if len(self.lnks) == 0:
+                self.lnks = [tk.Label(self.f, background='dark grey')]  # build the link
+            if self.t != 'Rec':  # control and target changes
+                #for i in range(self.r[-1].s.row + 1, s.row):  # keep between empty
+                #    self.f.a.d['s'][ind(t, i, s.col)].full = True
+                if self.t == 'Target':
+                    self.widget.place(x=s.x[0] + 2 * self.f.a.c, y=s.y[0] + 2 * self.f.a.c)
+                elif self.t == '2nd':
+                    if self.r_no > 1:
+                        nw = Obj(self.f, self.k, self.d, '2nd', s, self.r + [self], self.r_no - 1, self.cstm,
+                                 self.ct)
+                        for obj in self.r:
+                            obj.r.append(nw)
+                        self.r.append(nw)
+            else:  # attach links and shift receptor properly
+                if len(self.lnks) == 1:
+                    self.lnks.append(tk.Label(self.f, bg='dark grey'))
+                self.widget.place(x=self.last_s.x[0] + 4 * self.f.a.c, y=s.y[0] + 2 * self.f.a.c)
+            self.place_links()
+        self.undragged = False
+        if self.t in ('Ctrl', 'Read', '1st'):
+            if self.t == 'Read':
+                self.widget.place(y=s.y[0] + 2 * self.f.a.c)
+                #for i in range(s.col, self.f.a.cur['lyr']):
+                #    self.f.a.d['s'][ind(t, s.row, i)].full = True
+            if reset_prior_placements:
+                gate_t = '2nd'
+                if self.t == 'Ctrl':
+                    gate_t = 'Target'
+                if self.t == 'Read':
+                    gate_t = 'Rec'
+                self.r.append(Obj(self.f, self.k, self.d, gate_t, s, self.r + [self], self.r_no - 1, self.cstm,
+                                  self.ct))
+            else:
+                for r in self.r:
+                    r.place_links()
+
     def drag_end(self, event):  # finish placing an object and have it snap to position
         t = 'c' if self.t == 'Rec' else 'q'
         for row in range(self.f.a.cur[t]):
@@ -118,77 +205,19 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                             read = False
                 if ((self.t in ('Rec', '2nd', 'Target') and col == self.r[0].s.col) or read or self.t in
                     ('Gate', '1st', 'Ctrl')) and sel_y in s.y and not s.full:
-                    if not self.undragged:
-                        self.last_s.empty()
-                    self.widget.place(x=s.x[0], y=s.y[0])  # place in generic current spot
-                    s.full, s.obj, self.s = True, self, s  # mark the spot as filled, save obj and spot to each other
-                    if len(self.r) != 0 and self.r[-1].t in ('Target', '2nd', 'Rec'):  # anything with prior placements
-                        for r in self.r:
-                            r.widget.destroy()  # destroy previous target
-                            for lnk in r.lnks:
-                                lnk.destroy()  # destroy previous links
-                            if self.t == 'Read' and self.f.a.g_to_c:  # only for readers with prior placements
-                                if self.last_s is not None:
-                                    for n in range(self.last_s.col, self.f.a.cur['lyr']):
-                                        self.f.a.d['s'][ind(t, self.last_s.row, n)].empty()
-                                    self.f.a.d['s'][r.s.k].empty()
-                            if self.t in ('Ctrl', '1st'):  # only for controls and doubles with prior placements
-                                rows = range(r.s.row, s.row+1) if s.row > r.s.row else range(s.row, r.s.row+1)
-                                for n in rows:
-                                    self.f.a.d['s'][ind(t, n, r.s.col)].empty()
-                        self.r = []
-                    if self.t in ('Target', '2nd', 'Rec'):  # if it is the second, attach and place
-                        if self.lnks == []:
-                            self.lnks = [tk.Label(self.f, background='dark grey')]  # build the link
-                        self.lnks[0].place(x=self.r[0].s.x[0]+6*self.f.a.c, y=self.r[0].s.y[0]+12*self.f.a.c, w=2,
-                                           h=abs(self.r[0].s.y[0]-s.y[0])-10*self.f.a.c)
-                        if self.t != 'Rec':  # control and target changes
-                            for i in range(self.r[-1].s.row + 1, s.row):  # keep between empty
-                                self.f.a.d['s'][ind(t, i, s.col)].full = True
-                            if self.t == 'Target':
-                                self.widget.place(x=s.x[0]+2*self.f.a.c, y=s.y[0]+2*self.f.a.c)
-                                if row < self.r[-1].s.row:
-                                    self.lnks[0].place(y=s.y[0] + 10 * self.f.a.c)
-                            elif self.t == '2nd':
-                                self.lnks[0].place(h=abs(self.r[-1].s.y[0]-s.y[0])-12*self.f.a.c)
-                                if row < self.r[-1].s.row:
-                                    self.lnks[0].place(y=s.y[0]+12*self.f.a.c)
-                                if self.r_no > 1:
-                                    nw = Obj(self.f, self.k, self.d, '2nd', s, self.r+[self], self.r_no-1, self.cstm,
-                                             self.ct)
-                                    for obj in self.r:
-                                        obj.r.append(nw)
-                                    self.r.append(nw)
-                        else:  # attach links and shift receptor properly
-                            if len(self.lnks) == 1:
-                                self.lnks.append(tk.Label(self.f, bg='dark grey'))
-                            for i in range(len(self.lnks)):
-                                self.lnks[i].place(x=self.r[0].s.x[0]+10*self.f.a.c+5*i,
-                                                   y=self.r[0].s.y[0]+10*self.f.a.c,
-                                                   h=abs(s.y[0]-self.r[0].s.y[0])-8*self.f.a.c, w=2)
-                                self.widget.place(x=self.last_s.x[0] + 4 * self.f.a.c, y=s.y[0] + 2 * self.f.a.c)
-                    self.undragged = False
-                    if self.t in ('Ctrl', 'Read', '1st'):
-                        gate_t = '2nd'
-                        if self.t == 'Ctrl':
-                            gate_t = 'Target'
-                        if self.t == 'Read':
-                            self.widget.place(y=s.y[0] + 2 * self.f.a.c)
-                            for i in range(s.col, self.f.a.cur['lyr']):
-                                self.f.a.d['s'][ind(t, s.row, i)].full = True
-                            gate_t = 'Rec'
-                        self.r.append(Obj(self.f, self.k, self.d, gate_t, s, self.r+[self], self.r_no-1, self.cstm,
-                                          self.ct))
-                    if self.d['prm'] and self.f.a.g_to_c and self.c == self.d['c'] and \
-                            len(self.widget.winfo_children()) == 0:
+                    self.place(s)
+                    if self.d['prm'] and self.f.a.g_to_c and self.c == self.d['c'] and len(
+                            self.widget.winfo_children()) == 0:
                         ent = tk.Entry(self.widget, textvariable=tk.StringVar(self.f, value="θ"), bg=self.d['bg'])
                         ent.place(relx=0.5, rely=0.8, anchor='center', w=10 * self.f.a.c)
 
                         def get_param(entry):  # get the submitted parameter for the gate
-                            ent_string = "("+entry.get()+")"
-                            self.c, self.widget['text'] = self.d['c']+ent_string, self.k[0:self.k.index("(")]+ent_string
+                            ent_string = "(" + entry.get() + ")"
+                            self.c, self.widget['text'] = self.d['c'] + ent_string, self.k[
+                                                                                    0:self.k.index("(")] + ent_string
                             self.f.a.rewrite_code()
                             entry.destroy()
+
                         ent.bind('<Return>', lambda _: get_param(ent))
                         return  # cut short to avoid no theta being written into the code
                     self.f.a.rewrite_code()  # rewrite the code
@@ -589,7 +618,6 @@ class App(tk.Frame):  # build the actual app
                             (t in ('q', 'c') and self.d['s'][ind(t, row, i)].full):
                         return
         self.cur[t] -= 1
-        need_to_drag = []
         for i in range(rnge):
             if t in ('q', 'c'):
                 if i == 0:  # destroy the physical widget pieces
@@ -616,10 +644,9 @@ class App(tk.Frame):  # build the actual app
                         self.d['s'][ind(w_t, cur-1, i)], s.k, s.row = s, ind(w_t, cur-1, i), cur-1
                         self.d['s'].pop(ind(w_t, cur, i))
                     if s.full and s.obj is not None:  # place the objects
-                        if w_t == 'c':
-                            need_to_drag.append([s.obj, s.row+self.cur['q']])
-                        else:
-                            need_to_drag.append([s.obj, s.row])
+                        moving_obj = s.obj
+                        s.obj.s.empty()
+                        moving_obj.place(s)
             elif t == 'c':
                 for n in range(row+1, self.cur['c']+1):
                     if i == 0:
@@ -632,18 +659,15 @@ class App(tk.Frame):  # build the actual app
                     self.d['s'][ind('c', n-1, i)], s.k, s.row = s, ind('c', n-1, i), n-1
                     self.d['s'].pop(ind('c', n, i))
                     if s.full and s.obj is not None:  # place the objects
-                        need_to_drag.append([s.obj, s.row+self.cur['q']])
+                        moving_obj = s.obj
+                        s.obj.s.empty()
+                        moving_obj.place(s)
             else:
                 w = 'q'
                 if i >= self.cur['q']:
                     w, i = 'c', i-self.cur['q']
                 self.d['s'].pop(ind(w, i, self.cur[t]))  # delete the spots on layers that are being deleted
         self.g_to_c = False
-        for moving_obj, r in need_to_drag:
-            for obj in [moving_obj] + moving_obj.r:
-                obj.s.empty()
-            if moving_obj.widget.winfo_exists():
-                moving_obj.drag_end(r)
         self.g_to_c = True
         self.rewrite_code()
 

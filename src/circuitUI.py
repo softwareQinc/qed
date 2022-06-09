@@ -100,10 +100,10 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
             self.widget.place(x=event.widget.winfo_x()-event.widget._drag_start_x+event.x,
                               y=event.widget.winfo_y()-event.widget._drag_start_y+event.y)  # use co-ord fix
         self.widget.bind('<B1-Motion>', on_drag_motion)  # dragging enables drag motion
-        self.widget.bind('<ButtonRelease-1>', self.drag_end_action)  # releasing the mouse (even after one click)
+        self.widget.bind('<ButtonRelease-1>', self.drag_end)  # releasing the mouse (even after one click)
         self.widget.bind('<Double-Button-1>', lambda _: self.delete())  # double-clicking deletes the widget
 
-    def update_display(self, update_rest = False):
+    def update_display(self, update_rest = False):  # update placement of widgets (incl. links)
         self.widget.place(x=self.s.x[0], y=self.s.y[0])  # place in generic current spot
         if self.t in ('Target', '2nd', 'Rec'):  # if it is the second, attach and place
             if len(self.lnks) == 0:
@@ -143,7 +143,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
             for r in self.r:
                 r.update_display()
 
-    def place(self, s):
+    def place(self, s):  # place an object in an unfilled spot
         assert not s.full, "Can't place in a spot that's already filled"
 
         t = 'c' if self.t == 'Rec' else 'q'
@@ -185,7 +185,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                 for r in self.r:
                     r.update_display()
 
-    def drag_end_action(self, event):  # finish placing an object and have it snap to position
+    def drag_end(self, event):  # finish placing an object and have it snap to position
         t = 'c' if self.t == 'Rec' else 'q'
         target_row, target_col = None, None
         for row in range(self.f.a.cur[t]):
@@ -222,8 +222,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                     if r.s.row == old_row and r.s.col == old_col:
                         r.place(r.s)
                         break
-            if self.d['prm'] and self.f.a.g_to_c and self.c == self.d['c'] and len(
-                    self.widget.winfo_children()) == 0:
+            if self.d['prm'] and self.c == self.d['c'] and len(self.widget.winfo_children()) == 0:
                 ent = tk.Entry(self.widget, textvariable=tk.StringVar(self.f, value="θ"), bg=self.d['bg'])
                 ent.place(relx=0.5, rely=0.8, anchor='center', w=10 * self.f.a.c)
 
@@ -248,47 +247,23 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
             if self.t == 'Rec':
                 self.widget.place(x=self.last_s.x[0]+4*self.f.a.c)
 
-    def drag_end(self, event):  # finish placing an object and have it snap to position
+    def add_to_end(self, row):  # place an object in the first available position in the row
         t = 'c' if self.t == 'Rec' else 'q'
-        for row in range(self.f.a.cur[t]):
-            if self.last_s.t != '' and self.t != 'Rec' and row == self.last_s.row:
-                continue  # skip over this row as it is invalid
-            for col in range(self.f.a.cur['lyr']):
-                sel_y = 4 * (5 * event + 8) * self.f.a.c
-                s, read = self.f.a.d['s'][ind(t, row, col)], False  # assign spot, and currently not valid read
-                if self.t == 'Read':
-                    read = True
-                    for i in range(col, self.f.a.cur['lyr']):  # see if the spot is a valid place for a reader
-                        if self.f.a.d['s'][ind(t, row, i)].full:
-                            read = False
-                if ((self.t in ('Rec', '2nd', 'Target') and col == self.r[0].s.col) or read or self.t in
-                    ('Gate', '1st', 'Ctrl')) and sel_y in s.y and not s.full:
-                    self.place(s)
-                    if self.d['prm'] and self.f.a.g_to_c and self.c == self.d['c'] and len(
-                            self.widget.winfo_children()) == 0:
-                        ent = tk.Entry(self.widget, textvariable=tk.StringVar(self.f, value="θ"), bg=self.d['bg'])
-                        ent.place(relx=0.5, rely=0.8, anchor='center', w=10 * self.f.a.c)
-
-                        def get_param(entry):  # get the submitted parameter for the gate
-                            ent_string = "(" + entry.get() + ")"
-                            self.c, self.widget['text'] = self.d['c'] + ent_string, self.k[
-                                                                                    0:self.k.index("(")] + ent_string
-                            self.f.a.rewrite_code()
-                            entry.destroy()
-
-                        ent.bind('<Return>', lambda _: get_param(ent))
-                        return  # cut short to avoid no theta being written into the code
-                    self.f.a.rewrite_code()  # rewrite the code
-                    return  # once it happens once, end the function's call
-        self.widget.place(x=self.last_s.x[0], y=self.last_s.y[0])  # standard placement for the returnable
-        if self.undragged and not (self.t in ('Target', 'Rec', '2nd')):
-            self.widget.destroy()  # destroy if it's the first drag to avoid too many gates
-        elif self.t in ('Target', 'Rec', 'Read'):
-            self.widget.place(y=self.last_s.y[0]+2*self.f.a.c)
-            if self.t == 'Target':  # target size
-                self.widget.place(x=self.last_s.x[0]+2*self.f.a.c)
-            if self.t == 'Rec':
-                self.widget.place(x=self.last_s.x[0]+4*self.f.a.c)
+        if self.last_s.t != '' and self.t != 'Rec' and row == self.last_s.row:
+            raise RuntimeError("Row {} is invalid".format(row))
+        for col in range(self.f.a.cur['lyr']):
+            s, read = self.f.a.d['s'][ind(t, row, col)], False  # assign spot, and currently not valid read
+            if self.t == 'Read':
+                read = True
+                for i in range(col, self.f.a.cur['lyr']):  # see if the spot is a valid place for a reader
+                    if self.f.a.d['s'][ind(t, row, i)].full:
+                        read = False
+            if ((self.t in ('Rec', '2nd', 'Target') and col == self.r[0].s.col) or read or self.t in
+                ('Gate', '1st', 'Ctrl')) and not s.full:
+                self.place(s)
+                self.f.a.rewrite_code()  # rewrite the code
+                return  # once it happens once, end the function's call
+        raise RuntimeError("Row {} has no open spots".format(row))
 
     def delete(self):  # delete an object and the objects attached to it
         for obj in [self] + self.r:  # deleting one piece of a system deletes it all
@@ -465,16 +440,16 @@ class App(tk.Frame):  # build the actual app
                         if g is not None and self.find(line) != "":
                             new = Obj(g.f, g.k, g.d, g.t, g.s, [], g.r_no, g.cstm, g.ct)
                             new.undragged = False
-                            new.drag_end(self.find(line))
+                            new.add_to_end(self.find(line))
                             if g.d['prm']:
                                 new.c, new.widget['text'] = g.d['c']+cd.get(opn, cd.search(")", line) + "+1c"), \
                                     g.k[0:g.k.index("(")] + cd.get(opn, cd.search(")", line)+"+1c")
                             if len(new.r) != 0:
                                 new.r[0].last_s = new.s
                                 if g == self.i_b['MEAS']:
-                                    new.r[0].drag_end(self.find(str(cd.search("c", line))) + self.cur['q'])
+                                    new.r[0].add_to_end(self.find(str(cd.search("c", line))) + self.cur['q'])
                                 else:
-                                    new.r[0].drag_end(self.find(cd.search("]", line) + "+1c"))
+                                    new.r[0].add_to_end(self.find(cd.search("]", line) + "+1c"))
         except ValueError or _tkinter.TclError:
             if event.widget.search("INVALID FORMATTING\n", 1.0) == "1.0":
                 event.widget.delete("1.0", "1.0+" + str(len("INVALID FORMATTING\n")) + "c")

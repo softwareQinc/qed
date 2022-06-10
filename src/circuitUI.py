@@ -110,7 +110,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
             irow = (event.widget.winfo_y()//self.f.a.c-27)//20
             icol = ((event.widget.winfo_x()+8*self.f.a.c)//self.f.a.c-17)//16
             if 0 <= irow < self.f.a.cur['q'] and 0 <= icol < self.f.a.cur['lyr'] and (self.undragged or \
-                                                                                      irow != self.last_s.row):
+                    irow != self.last_s.row or icol not in (self.last_s.col, self.last_s.col+1)):
                 s = self.f.a.d['s'][ind('q', irow, icol)]
                 if s.full and (icol == 0 or self.f.a.d['s'][ind('q', irow, icol-1)].full):
                     self.insert[0] = irow
@@ -230,7 +230,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
         t = 'c' if self.t == 'Rec' else 'q'
         target_row, target_col = None, None
         for row in range(self.f.a.cur[t]):
-            if self.last_s.t != '' and self.t != 'Rec' and row == self.last_s.row:
+            if self.last_s.t != '' and self.t != 'Rec' and row == self.last_s.row and self.insert[0] is None:
                 continue  # skip over this row as it is invalid
             for col in range(self.f.a.cur['lyr']):
                 sel_y, sel_x = self.widget.winfo_y(), self.widget.winfo_x()

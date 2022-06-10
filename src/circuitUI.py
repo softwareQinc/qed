@@ -79,6 +79,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
     def __init__(self, frame, key, g_d, type, spot, rels, rel_no, custom, cstm_type):
         self.f, self.k, self.d, self.t, self.s, self.r, self.r_no, self.cstm, self.ct, self.c, self.last_s, self.lnks, \
             self.undragged = frame, key, g_d, type, spot, rels, rel_no, custom, cstm_type, g_d['c'], spot, [], True
+        self.insert = [None, None]
         if type in ('Rec', 'Read'):
             self.widget = tk.Label(frame, text=self.k, relief='ridge', borderwidth=5)  # build the label
         else:
@@ -97,6 +98,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                 self.s, True  # assign drag data
             if self.undragged and len(self.r) == 0:
                 Obj(self.f, self.k, self.d, self.t, self.s, [], self.r_no, self.cstm, self.ct)
+            self.insert = [None, None]
         self.widget.bind('<Button-1>', drag_start)  # clicking the mouse begins dragging
 
         def on_drag_motion(event):  # drag the box across the screen
@@ -104,6 +106,24 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                 return
             self.widget.place(x=event.widget.winfo_x()-event.widget._drag_start_x+event.x,
                               y=event.widget.winfo_y()-event.widget._drag_start_y+event.y)  # use co-ord fix
+            # compute self.insert
+            irow = (event.widget.winfo_y()//self.f.a.c-27)//20
+            icol = ((event.widget.winfo_x()+8*self.f.a.c)//self.f.a.c-17)//16
+            if 0 <= irow < self.f.a.cur['q'] and 0 <= icol < self.f.a.cur['lyr'] and (self.undragged or \
+                                                                                      irow != self.last_s.row):
+                s = self.f.a.d['s'][ind('q', irow, icol)]
+                if s.full and (icol == 0 or self.f.a.d['s'][ind('q', irow, icol-1)].full):
+                    self.insert[0] = irow
+                    self.insert[1] = icol
+                    if len(self.insert) == 2:
+                        self.insert.append(tk.Label(self.f, background='red'))
+                    self.insert[2].place(x=s.x[0] - 2*self.f.a.c, y=s.y[0], w=2, h=12 * self.f.a.c)
+                    return
+            self.insert[0] = None
+            self.insert[1] = None
+            if len(self.insert) == 3:  # destroy insert line
+                self.insert[2].destroy()
+                self.insert.pop()
         self.widget.bind('<B1-Motion>', on_drag_motion)  # dragging enables drag motion
         self.widget.bind('<ButtonRelease-1>', self.drag_end)  # releasing the mouse (even after one click)
         self.widget.bind('<Double-Button-1>', lambda _: self.delete())  # double-clicking deletes the widget
@@ -203,6 +223,10 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
         else:
             return
 
+        if len(self.insert) == 3:  # destroy insert line
+            self.insert[2].destroy()
+            self.insert.pop()
+
         t = 'c' if self.t == 'Rec' else 'q'
         target_row, target_col = None, None
         for row in range(self.f.a.cur[t]):
@@ -217,9 +241,12 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                         if self.f.a.d['s'][ind(t, row, i)].full:
                             read = False
                 if ((self.t in ('Rec', '2nd', 'Target') and col == self.r[0].s.col) or read or self.t in
-                    ('Gate', '1st', 'Ctrl')) and sel_y in s.y and (self.t in ('Rec', '2nd', 'Target') or
-                                                                   sel_x <= s.x[-1]) and not s.full:
+                        ('Gate', '1st', 'Ctrl')) and sel_y in s.y and (self.t in ('Rec', '2nd', 'Target') or
+                        sel_x <= s.x[-1]) and (not s.full or (self.insert[0] == row and self.insert[1] == col and
+                        (self.t not in ('Rec', '2nd', 'Target') or row != self.r[0].s.row))):
                     target_row, target_col = row, col
+                    if s.full:
+                        self.f.a.right_shift(target_col, {target_row})
                     break
         if target_row is not None and target_col is not None:
             s = self.f.a.d['s'][ind(t, target_row, target_col)]
@@ -737,6 +764,34 @@ class App(tk.Frame):  # build the actual app
                                 self.d['s'][ind(obj.s.t, obj.s.row, obj.s.col-shift_amt)], obj.s.k, obj.s.col = obj.s, \
                                     ind(obj.s.t, obj.s.row, obj.s.col-shift_amt), obj.s.col-shift_amt
                                 obj.update_display(True)
+
+    def right_shift(self, out_col, rows):  # shift gates to the right to make room for insertion
+        to_shift = set()
+        for col in range(out_col, self.cur['lyr']):
+            next_rows = set()
+            for row in rows:
+                w_t, cur = 'q', row
+                if row >= self.cur['q']:
+                    w_t, cur = 'c', row - self.cur['q']
+                s = self.d['s'][ind(w_t, cur, col)]
+                if s.full and s.obj is not None:
+                    for obj in [s.obj] + s.obj.r:
+                        if not obj.undragged:
+                            to_shift.add((obj.s.col, obj.s.row, obj.s.t))
+                            next_rows.add(obj.s.row)
+            rows = next_rows
+        for col, row, t in sorted(list(to_shift), reverse=True):
+            if col == self.cur['lyr']-1:
+                self.d['s'][ind(t, row, col)].obj.delete()
+            else:
+                s1, s2 = self.d['s'][ind(t, row, col)], self.d['s'][ind(t, row, col+1)]
+                moving_obj = s1.obj
+                s1.place_x(self.c, col+1)
+                self.d['s'][ind(t, row, col+1)], s1.k, s1.col = s1, ind(t, row, col+1), col+1
+                s2.place_x(self.c, col)
+                self.d['s'][ind(t, row, col)], s2.k, s2.col = s2, ind(t, row, col), col
+                moving_obj.update_display(True)
+
 
 if __name__ == "__main__":
     root = tk.Tk()

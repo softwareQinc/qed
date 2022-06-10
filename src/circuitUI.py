@@ -171,7 +171,8 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                                 self.f.a.d['s'][ind(t, self.last_s.row, n)].empty()
                             self.f.a.d['s'][r.s.k].empty()
                     if self.t in ('Ctrl', '1st'):  # only for controls and doubles with prior placements
-                        rows = range(r.s.row, s.row + 1) if s.row > r.s.row else range(s.row, r.s.row + 1)
+                        rows = range(r.s.row, self.last_s.row + 1) if self.last_s.row > r.s.row else \
+                            range(self.last_s.row, r.s.row + 1)
                         for n in rows:
                             self.f.a.d['s'][ind(t, n, r.s.col)].empty()
                 self.r = []
@@ -250,6 +251,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
 
                 ent.bind('<Return>', lambda _: get_param(ent))
                 return  # cut short to avoid no theta being written into the code
+            self.f.a.left_shift(old_col)
             self.f.a.rewrite_code()  # rewrite the code
             return  # once it happens once, end the function's call
         self.widget.place(x=self.last_s.x[0], y=self.last_s.y[0])  # standard placement for the returnable

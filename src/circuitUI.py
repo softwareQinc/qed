@@ -68,8 +68,11 @@ class Spot:  # Create class for creating spots
     def empty(self):  # empty a spot
         self.full, self.obj = False, None
 
-    def place(self, c, new_row):  # move a spot to a new y_location
+    def place_y(self, c, new_row):  # move a spot to a new y_location
         self.y = range(c*(27+20*new_row), c*(27+20*(new_row+1)))
+
+    def place_x(self, c, new_col):  # move a spot to a new x_location
+        self.x = range(c*(17+16*new_col), c*(17+16*(new_col+1)))
 
 
 class Obj:  # Create a class for creating items (gates, detectors, and connectors)
@@ -97,6 +100,8 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
         self.widget.bind('<Button-1>', drag_start)  # clicking the mouse begins dragging
 
         def on_drag_motion(event):  # drag the box across the screen
+            if not hasattr(event.widget, '_drag_start_x'): # see note in the drag_end() method
+                return
             self.widget.place(x=event.widget.winfo_x()-event.widget._drag_start_x+event.x,
                               y=event.widget.winfo_y()-event.widget._drag_start_y+event.y)  # use co-ord fix
         self.widget.bind('<B1-Motion>', on_drag_motion)  # dragging enables drag motion
@@ -186,6 +191,17 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                     r.update_display()
 
     def drag_end(self, event):  # finish placing an object and have it snap to position
+        '''
+        Note: When a gate is double-clicked and deleted and another gate gets shifted into that spot,
+        the shifted gate's drag_end() gets triggered without its on_drag_motion(). This if/else block
+        detects and does nothing when that happens
+        '''
+        if hasattr(event.widget, '_drag_start_x'):
+            self.widget.__dict__.pop('_drag_start_x', None)
+            self.widget.__dict__.pop('_drag_start_y', None)
+        else:
+            return
+
         t = 'c' if self.t == 'Rec' else 'q'
         target_row, target_col = None, None
         for row in range(self.f.a.cur[t]):
@@ -228,8 +244,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
 
                 def get_param(entry):  # get the submitted parameter for the gate
                     ent_string = "(" + entry.get() + ")"
-                    self.c, self.widget['text'] = self.d['c'] + ent_string, self.k[
-                                                                            0:self.k.index("(")] + ent_string
+                    self.c, self.widget['text'] = self.d['c'] + ent_string, self.k[0:self.k.index("(")] + ent_string
                     self.f.a.rewrite_code()
                     entry.destroy()
 
@@ -266,6 +281,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
         raise RuntimeError("Row {} has no open spots".format(row))
 
     def delete(self):  # delete an object and the objects attached to it
+        col = self.s.col
         for obj in [self] + self.r:  # deleting one piece of a system deletes it all
             if obj.t in ('Target', '2nd', 'Rec'):
                 for link in obj.lnks:
@@ -283,6 +299,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                     self.f.a.d['s'][ind('q', obj.s.row, i)].empty()
             self.f.a.d['s'][obj.s.k].empty()
             obj.widget.destroy()
+        self.f.a.left_shift(col)
         self.f.a.rewrite_code()  # rewrite code to match board
 
 
@@ -613,7 +630,7 @@ class App(tk.Frame):  # build the actual app
                             self.d['w'][w_t+str(cur+1)] = self.d['w'][w_t+str(cur)]
                             self.d['w'][w_t+str(cur+1)].relabel(self, cur+1, w_t)
                     s = self.d['s'][ind(w_t, cur, i)]
-                    s.place(self.c, n+1)
+                    s.place_y(self.c, n+1)
                     if w_t == t:  # if adding a new one of the current wire, add one to the future wires index
                         self.d['s'][ind(w_t, cur+1, i)], s.k, s.row = s, ind(w_t, cur+1, i), cur+1
                     if s.full and s.obj is not None:  # move the object to its new location
@@ -664,7 +681,7 @@ class App(tk.Frame):  # build the actual app
                             self.d['w'].pop(w_t+str(cur))
                             self.d['w'][w_t+str(cur-1)].relabel(self, cur-1, w_t)
                     s = self.d['s'][ind(w_t, cur, i)]
-                    s.place(self.c, n-1)
+                    s.place_y(self.c, n-1)
                     if w_t == t:
                         self.d['s'][ind(w_t, cur-1, i)], s.k, s.row = s, ind(w_t, cur-1, i), cur-1
                         self.d['s'].pop(ind(w_t, cur, i))
@@ -678,7 +695,7 @@ class App(tk.Frame):  # build the actual app
                         self.d['w'].pop('c'+str(n))
                         self.d['w']['c'+str(n-1)].relabel(self, n-1, 'c')
                     s = self.d['s'][ind('c', n, i)]
-                    s.place(self.c, self.cur['q']+n-1)
+                    s.place_y(self.c, self.cur['q']+n-1)
                     self.d['s'][ind('c', n-1, i)], s.k, s.row = s, ind('c', n-1, i), n-1
                     self.d['s'].pop(ind('c', n, i))
                     if s.full and s.obj is not None:  # place the objects
@@ -690,6 +707,34 @@ class App(tk.Frame):  # build the actual app
                 self.d['s'].pop(ind(w, i, self.cur[t]))  # delete the spots on layers that are being deleted
         self.rewrite_code()
 
+    def left_shift(self, out_col):  # left-justify the grid after a gate in the column was moved/deleted
+        for col in range(out_col+1, self.cur['lyr']):
+            for row in range(self.cur['q'] + self.cur['c']):
+                w_t, cur = 'q', row
+                if row >= self.cur['q']:
+                    w_t, cur = 'c', row - self.cur['q']
+                s = self.d['s'][ind(w_t, cur, col)]
+                if s.full and s.obj is not None:
+                    shift_amt = float('inf')
+                    for obj in [s.obj] + s.obj.r:
+                        if not obj.undragged:
+                            shft = 0
+                            for i in range(obj.s.col-1, -1, -1):
+                                if self.d['s'][ind(obj.s.t, obj.s.row, i)].full:
+                                    break
+                                shft += 1
+                            shift_amt = min(shift_amt, shft)
+                    if shift_amt > 0:
+                        for obj in [s.obj] + s.obj.r:
+                            if not obj.undragged:
+                                empty_s = self.d['s'][ind(obj.s.t, obj.s.row, obj.s.col - shift_amt)]  # swap with obj.s
+                                empty_s.place_x(self.c, obj.s.col)
+                                self.d['s'][ind(obj.s.t, obj.s.row, obj.s.col)], empty_s.k, empty_s.col = empty_s, \
+                                    ind(obj.s.t, obj.s.row, obj.s.col), obj.s.col
+                                obj.s.place_x(self.c, obj.s.col-shift_amt)
+                                self.d['s'][ind(obj.s.t, obj.s.row, obj.s.col-shift_amt)], obj.s.k, obj.s.col = obj.s, \
+                                    ind(obj.s.t, obj.s.row, obj.s.col-shift_amt), obj.s.col-shift_amt
+                                obj.update_display(True)
 
 if __name__ == "__main__":
     root = tk.Tk()

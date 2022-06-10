@@ -737,7 +737,7 @@ class App(tk.Frame):  # build the actual app
         self.rewrite_code()
 
     def left_shift(self, out_col):  # left-justify the grid after a gate in the column was moved/deleted
-        for col in range(out_col+1, self.cur['lyr']):
+        for col in range(max(out_col, 1), self.cur['lyr']):
             for row in range(self.cur['q'] + self.cur['c']):
                 w_t, cur = 'q', row
                 if row >= self.cur['q']:

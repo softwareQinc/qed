@@ -110,9 +110,10 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
             irow = (event.widget.winfo_y()//self.f.a.c-27)//20
             icol = ((event.widget.winfo_x()+8*self.f.a.c)//self.f.a.c-17)//16
             if 0 <= irow < self.f.a.cur['q'] and 0 <= icol < self.f.a.cur['lyr'] and (self.undragged or \
-                    irow != self.last_s.row or icol not in (self.last_s.col, self.last_s.col+1)):
+                    irow != self.last_s.row or icol not in (self.last_s.col, self.last_s.col+1)) and \
+                    self.t not in ('Read', 'Rec'):
                 s = self.f.a.d['s'][ind('q', irow, icol)]
-                if s.full and (icol == 0 or self.f.a.d['s'][ind('q', irow, icol-1)].full):
+                if s.full and s.obj is not None and (icol == 0 or self.f.a.d['s'][ind('q', irow, icol-1)].full):
                     self.insert[0] = irow
                     self.insert[1] = icol
                     if len(self.insert) == 2:
@@ -136,8 +137,6 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
             self.lnks[0].place(x=self.r[0].s.x[0] + 6 * self.f.a.c, y=self.r[0].s.y[0] + 12 * self.f.a.c, w=2,
                                h=abs(self.r[0].s.y[0] - self.s.y[0]) - 10 * self.f.a.c)
             if self.t != 'Rec':  # control and target changes
-                #for i in range(self.r[-1].s.row + 1, s.row):  # keep between empty
-                #    self.f.a.d['s'][ind(t, i, s.col)].full = True
                 if self.t == 'Target':
                     self.widget.place(x=self.s.x[0] + 2 * self.f.a.c, y=self.s.y[0] + 2 * self.f.a.c)
                     if self.s.row < self.r[-1].s.row:
@@ -159,23 +158,21 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                     self.lnks[i].place(x=self.r[0].s.x[0] + 10 * self.f.a.c + 5 * i,
                                        y=self.r[0].s.y[0] + 10 * self.f.a.c,
                                        h=abs(self.s.y[0] - self.r[0].s.y[0]) - 8 * self.f.a.c, w=2)
-                    self.widget.place(x=self.last_s.x[0] + 4 * self.f.a.c, y=self.s.y[0] + 2 * self.f.a.c)
+                    self.widget.place(x=self.s.x[0] + 4 * self.f.a.c, y=self.s.y[0] + 2 * self.f.a.c)
         if self.t == 'Read':
             self.widget.place(y=self.s.y[0] + 2 * self.f.a.c)
-            #for i in range(s.col, self.f.a.cur['lyr']):
-            #    self.f.a.d['s'][ind(t, s.row, i)].full = True
         if update_rest and self.t in ('Ctrl', 'Read', '1st'):
             for r in self.r:
                 r.update_display()
 
     def place(self, s):  # place an object in an unfilled spot
-        assert not s.full, "Can't place in a spot that's already filled"
+        assert not s.full, "Can't place in a spot that's already filled: {}, {}, {}".format(self.t, s.row, s.col)
 
         t = 'c' if self.t == 'Rec' else 'q'
         if not self.undragged:
             self.last_s.empty()
         s.full, s.obj, self.s = True, self, s  # mark the spot as filled, save obj and spot to each other
-        reset_prior_placements = self.undragged
+        reset_prior_placements = self.undragged or (self.t == 'Read' and self.r[-1].undragged)
         for r in self.r: # if any prior placements are in a different column, then reset all of them
             if r.s.col != s.col:
                 reset_prior_placements = True
@@ -187,8 +184,6 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                         lnk.destroy()  # destroy previous links
                     if self.t == 'Read' and self.f.a.g_to_c:  # only for readers with prior placements
                         if self.last_s is not None:
-                            for n in range(self.last_s.col, self.f.a.cur['lyr']):
-                                self.f.a.d['s'][ind(t, self.last_s.row, n)].empty()
                             self.f.a.d['s'][r.s.k].empty()
                     if self.t in ('Ctrl', '1st'):  # only for controls and doubles with prior placements
                         rows = range(r.s.row, self.last_s.row + 1) if self.last_s.row > r.s.row else \
@@ -196,6 +191,11 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                         for n in rows:
                             self.f.a.d['s'][ind(t, n, r.s.col)].empty()
                 self.r = []
+            if self.t == 'Read' and self.f.a.g_to_c:
+                if self.last_s is not None:
+                    for n in range(self.last_s.col, self.f.a.cur['lyr']):
+                        self.f.a.d['s'][ind(t, self.last_s.row, n)].empty()
+
         self.update_display()
         self.undragged = False
         if self.t in ('Ctrl', 'Read', '1st'):
@@ -243,29 +243,51 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                 if ((self.t in ('Rec', '2nd', 'Target') and col == self.r[0].s.col) or read or self.t in
                         ('Gate', '1st', 'Ctrl')) and sel_y in s.y and (self.t in ('Rec', '2nd', 'Target') or
                         sel_x <= s.x[-1]) and (not s.full or (self.insert[0] == row and self.insert[1] == col and
-                        (self.t not in ('Rec', '2nd', 'Target') or row != self.r[0].s.row))):
+                        (len(self.r) == 0 or row != self.r[0].s.row))):
                     target_row, target_col = row, col
-                    if s.full:
-                        self.f.a.right_shift(target_col, {target_row})
                     break
         if target_row is not None and target_col is not None:
-            s = self.f.a.d['s'][ind(t, target_row, target_col)]
             if self.t not in ('Rec', '2nd', 'Target'):
                 while target_col > 0:
                     if self.t in ('1st', 'Ctrl') and len(self.r) > 0 and target_col == self.r[-1].s.col:
                         break
-                    possible_spot = self.f.a.d['s'][ind(t, target_row, target_col-1)]
-                    if possible_spot.full:
+                    if self.f.a.d['s'][ind(t, target_row, target_col-1)].full:
                         break
-                    s = possible_spot
                     target_col -= 1
             old_row, old_col = self.s.row, self.s.col
-            self.place(s)
+            if len(self.r) > 0:
+                need_rows = {target_row} if self.t != 'Rec' else set()   # all needed rows
+                old_rows = set()    # previously occupied rows
+                for obj in self.r:
+                    if obj.s.col == target_col and obj.t not in ('Read', 'Rec'):
+                        need_rows.update(range(obj.s.row, target_row + 1) if obj.s.row < target_row else \
+                                              range(target_row, obj.s.row + 1))
+                        old_rows.update(range(obj.s.row, self.s.row + 1) if obj.s.row < self.s.row else \
+                                            range(self.s.row, obj.s.row + 1))
+                for rw in old_rows: # unmark links
+                    s_tmp = self.f.a.d['s'][ind('q', rw, target_col)]
+                    if s_tmp.obj is None:
+                        s_tmp.empty()
+                shift_rows = need_rows.copy()
+                for obj in [self] + self.r:  # don't shift attached objects
+                    if obj.s.col == target_col and obj.t not in ('Read', 'Rec'):
+                        shift_rows.discard(obj.s.row)
+                self.f.a.right_shift(target_col, shift_rows)
+                self.place(self.f.a.d['s'][ind(t, target_row, target_col)])
+                for rw in need_rows:  # keep between empty
+                    self.f.a.d['s'][ind('q', rw, target_col)].full = True
+            else:
+                self.f.a.right_shift(target_col, {target_row})
+                self.place(self.f.a.d['s'][ind(t, target_row, target_col)])
             if self.t in ('1st', 'Ctrl'):
                 for r in self.r: # replace with undragged link, if any
                     if r.s.row == old_row and r.s.col == old_col:
+                        r.s.empty()
                         r.place(r.s)
                         break
+            elif self.t == 'Read':
+                for i in range(self.s.col, self.f.a.cur['lyr']):
+                    self.f.a.d['s'][ind(self.s.t, self.s.row, i)].full = True
             if self.d['prm'] and self.c == self.d['c'] and len(self.widget.winfo_children()) == 0:
                 ent = tk.Entry(self.widget, textvariable=tk.StringVar(self.f, value="θ"), bg=self.d['bg'])
                 ent.place(relx=0.5, rely=0.8, anchor='center', w=10 * self.f.a.c)
@@ -312,7 +334,10 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
     def delete(self):  # delete an object and the objects attached to it
         col = self.s.col
         for obj in [self] + self.r:  # deleting one piece of a system deletes it all
-            if obj.t in ('Target', '2nd', 'Rec'):
+            if obj.t == 'Read':
+                for i in range(obj.s.col, self.f.a.cur['lyr']):
+                    self.f.a.d['s'][ind('q', obj.s.row, i)].empty()
+            else:
                 for link in obj.lnks:
                     link.destroy()
                 else:
@@ -323,9 +348,6 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                         if i >= self.f.a.cur['q']:
                             t, i = 'c', i-self.f.a.cur['q']
                         self.f.a.d['s'][ind(t, i, obj.s.col)].empty()
-            elif obj.t == 'Read':
-                for i in range(obj.s.col, self.f.a.cur['lyr']):
-                    self.f.a.d['s'][ind('q', obj.s.row, i)].empty()
             self.f.a.d['s'][obj.s.k].empty()
             obj.widget.destroy()
         self.f.a.left_shift(col)
@@ -672,9 +694,9 @@ class App(tk.Frame):  # build the actual app
                 if i >= self.cur['q']:
                     w, i = 'c', i - self.cur['q']
                 self.d['s'][ind(w, i, self.cur[t])] = Spot(i, self.cur[t], w, self)
-                if self.d['s'][ind(w, i, self.cur[t]-1)].obj is not None and \
-                        self.d['s'][ind(w, i, self.cur[t]-1)].obj.t == 'Read':
-                    self.d['s'][ind(w, i, self.cur[t])].full = True
+                #if self.d['s'][ind(w, i, self.cur[t]-1)].obj is not None and \
+                #        self.d['s'][ind(w, i, self.cur[t]-1)].obj.t == 'Read':
+                #    self.d['s'][ind(w, i, self.cur[t])].full = True
         self.cur[t] += 1
         self.rewrite_code()
 
@@ -686,7 +708,7 @@ class App(tk.Frame):  # build the actual app
             for i in range(rnge):  # only delete if empty
                 for p in ('q', 'c'):
                     if (t == 'lyr' and i < self.cur[p] and self.d['s'][ind(p, i, self.cur[t]-1)].obj is not None) or \
-                            (t in ('q', 'c') and self.d['s'][ind(t, row, i)].full):
+                            (t in ('q', 'c') and self.d['s'][ind(t, row, i)].obj is not None):
                         return
         self.cur[t] -= 1
         for i in range(rnge):
@@ -745,6 +767,7 @@ class App(tk.Frame):  # build the actual app
                 s = self.d['s'][ind(w_t, cur, col)]
                 if s.full and s.obj is not None:
                     shift_amt = float('inf')
+                    to_shift = set()
                     for obj in [s.obj] + s.obj.r:
                         if not obj.undragged:
                             shft = 0
@@ -753,17 +776,30 @@ class App(tk.Frame):  # build the actual app
                                     break
                                 shft += 1
                             shift_amt = min(shift_amt, shft)
+                            to_shift.add((obj.s.t, obj.s.row, obj.s.col))
+                    # also need to shift links
+                    min_row = min(obj.s.row for obj in [s.obj] + s.obj.r if not obj.undragged and obj.s.t == 'q')
+                    max_row = max(obj.s.row for obj in [s.obj] + s.obj.r if not obj.undragged and obj.s.t == 'q')
+                    for rrow in range(min_row + 1, max_row):  # iterate over open set (min_row, max_row)
+                        shft = 0
+                        for i in range(col-1, -1, -1):
+                            if self.d['s'][ind('q', rrow, i)].full:
+                                break
+                            shft += 1
+                        shift_amt = min(shift_amt, shft)
+                        to_shift.add(('q', rrow, col))
                     if shift_amt > 0:
-                        for obj in [s.obj] + s.obj.r:
-                            if not obj.undragged:
-                                empty_s = self.d['s'][ind(obj.s.t, obj.s.row, obj.s.col - shift_amt)]  # swap with obj.s
-                                empty_s.place_x(self.c, obj.s.col)
-                                self.d['s'][ind(obj.s.t, obj.s.row, obj.s.col)], empty_s.k, empty_s.col = empty_s, \
-                                    ind(obj.s.t, obj.s.row, obj.s.col), obj.s.col
-                                obj.s.place_x(self.c, obj.s.col-shift_amt)
-                                self.d['s'][ind(obj.s.t, obj.s.row, obj.s.col-shift_amt)], obj.s.k, obj.s.col = obj.s, \
-                                    ind(obj.s.t, obj.s.row, obj.s.col-shift_amt), obj.s.col-shift_amt
-                                obj.update_display(True)
+                        for t, r, c in to_shift:
+                            s1, s2 = self.d['s'][ind(t, r, c)], self.d['s'][ind(t, r, c-shift_amt)]
+                            s1.place_x(self.c, c-shift_amt)
+                            self.d['s'][ind(t, r, c-shift_amt)], s1.k, s1.col = s1, ind(t, r, c-shift_amt), c-shift_amt
+                            s2.place_x(self.c, c)
+                            self.d['s'][ind(t, r, c)], s2.k, s2.col = s2, ind(t, r, c), c
+                            if s1.obj is not None:
+                                s1.obj.update_display(True)
+                                if s1.obj.t == 'Read':
+                                    for ccol in range(c-shift_amt, c+1):
+                                        self.d['s'][ind(t, r, ccol)].full = True
 
     def right_shift(self, out_col, rows):  # shift gates to the right to make room for insertion
         to_shift = set()
@@ -774,23 +810,35 @@ class App(tk.Frame):  # build the actual app
                 if row >= self.cur['q']:
                     w_t, cur = 'c', row - self.cur['q']
                 s = self.d['s'][ind(w_t, cur, col)]
-                if s.full and s.obj is not None:
-                    for obj in [s.obj] + s.obj.r:
-                        if not obj.undragged:
-                            to_shift.add((obj.s.col, obj.s.row, obj.s.t))
-                            next_rows.add(obj.s.row)
+                if s.full:
+                    while s.obj is None:  # find gate which this link is part of
+                        if s.row == 0:
+                            break
+                        s = self.d['s'][ind(w_t, s.row-1, col)]
+                    else:
+                        for obj in [s.obj] + s.obj.r:
+                            if not obj.undragged:
+                                to_shift.add((obj.s.col, obj.s.row, obj.s.t))
+                                next_rows.add(obj.s.row if obj.s.t == 'q' else obj.s.row + self.cur['q'])
+                        min_row = min(obj.s.row for obj in [s.obj] + s.obj.r if not obj.undragged and obj.s.t == 'q')
+                        max_row = max(obj.s.row for obj in [s.obj] + s.obj.r if not obj.undragged and obj.s.t == 'q')
+                        for rrow in range(min_row + 1, max_row):  # iterate over open set (min_row, max_row)
+                            to_shift.add((col, rrow, 'q'))
+                            next_rows.add(rrow)
             rows = next_rows
         for col, row, t in sorted(list(to_shift), reverse=True):
             if col == self.cur['lyr']-1:
                 self.d['s'][ind(t, row, col)].obj.delete()
             else:
                 s1, s2 = self.d['s'][ind(t, row, col)], self.d['s'][ind(t, row, col+1)]
-                moving_obj = s1.obj
                 s1.place_x(self.c, col+1)
                 self.d['s'][ind(t, row, col+1)], s1.k, s1.col = s1, ind(t, row, col+1), col+1
                 s2.place_x(self.c, col)
                 self.d['s'][ind(t, row, col)], s2.k, s2.col = s2, ind(t, row, col), col
-                moving_obj.update_display(True)
+                if s1.obj is not None:
+                    s1.obj.update_display(True)
+                    if s1.obj.t == 'Read':
+                        s2.empty()
 
 
 if __name__ == "__main__":

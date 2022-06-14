@@ -671,6 +671,7 @@ class App(tk.Frame):  # build the actual app
                 if t == 'c':
                     reverse_rows = list(range(row+self.cur['q']+1, self.cur['q']+self.cur['c']))
                 reverse_rows.reverse()
+                make_full = False
                 for n in reverse_rows:
                     w_t, cur = 'q', n
                     if n >= self.cur['q']:
@@ -686,9 +687,17 @@ class App(tk.Frame):  # build the actual app
                         self.d['s'][ind(w_t, cur+1, i)], s.k, s.row = s, ind(w_t, cur+1, i), cur+1
                     if s.full and s.obj is not None:  # move the object to its new location
                         s.obj.update_display(True)
+                    if n == reverse_rows[-1]:
+                        if s.full:
+                            if s.obj is None:
+                                make_full = True
+                            else:
+                                make_full = any(obj.s.row < n and not obj.undragged for obj in s.obj.r)
                 if i == 0:
                     self.d['w'][t+str(row+1)] = Wire(self.f_d['g']['f'], row+1, t)
                 self.d['s'][ind(t, row+1, i)] = Spot(row+1, i, t, self)
+                if make_full:  # fill spot for link
+                    self.d['s'][ind(t, row + 1, i)].full = True
             else:
                 w = 'q'
                 if i >= self.cur['q']:

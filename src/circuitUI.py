@@ -696,7 +696,7 @@ class App(tk.Frame):  # build the actual app
                 if i == 0:
                     self.d['w'][t+str(row+1)] = Wire(self.f_d['g']['f'], row+1, t)
                 self.d['s'][ind(t, row+1, i)] = Spot(row+1, i, t, self)
-                if make_full:  # fill spot for link
+                if t == 'q' and make_full:  # fill spot for link
                     self.d['s'][ind(t, row + 1, i)].full = True
             else:
                 w = 'q'

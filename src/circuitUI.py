@@ -172,7 +172,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
         if not self.undragged:
             self.last_s.empty()
         s.full, s.obj, self.s = True, self, s  # mark the spot as filled, save obj and spot to each other
-        reset_prior_placements = self.undragged or (self.t == 'Read' and self.r[-1].undragged)
+        reset_prior_placements = len(self.r) == 0 or (self.t == 'Read' and self.r[-1].undragged)
         for r in self.r: # if any prior placements are in a different column, then reset all of them
             if r.s.col != s.col:
                 reset_prior_placements = True
@@ -515,7 +515,7 @@ class App(tk.Frame):  # build the actual app
                             if len(new.r) != 0:
                                 new.r[0].last_s = new.s
                                 if g == self.i_b['MEAS']:
-                                    new.r[0].add_to_end(self.find(str(cd.search("c", line))) + self.cur['q'])
+                                    new.r[0].add_to_end(self.find(str(cd.search("c", line))))
                                 else:
                                     new.r[0].add_to_end(self.find(cd.search("]", line) + "+1c"))
         except ValueError or _tkinter.TclError:

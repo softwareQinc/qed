@@ -511,8 +511,10 @@ class App(tk.Frame):  # build the actual app
                                     g.k[0:g.k.index("(")] + cd.get(opn, cd.search(")", line)+"+1c")
                             if g == self.i_b['MEAS']:
                                 new.add_to_end(self.find(line), self.find(str(cd.search("c", line))))
-                            else:
+                            elif g.t in ('Ctrl', '1st'):
                                 new.add_to_end(self.find(line), self.find(cd.search("]", line) + "+1c"))
+                            else:
+                                new.add_to_end(self.find(line))
         except ValueError or _tkinter.TclError:
             if event.widget.search("INVALID FORMATTING\n", 1.0) == "1.0":
                 event.widget.delete("1.0", "1.0+" + str(len("INVALID FORMATTING\n")) + "c")

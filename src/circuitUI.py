@@ -313,23 +313,22 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
             if self.t == 'Rec':
                 self.widget.place(x=self.last_s.x[0]+4*self.f.a.c)
 
-    def add_to_end(self, row):  # place an object in the first available position in the row
-        t = 'c' if self.t == 'Rec' else 'q'
-        if self.last_s.t != '' and self.t != 'Rec' and row == self.last_s.row:
-            raise RuntimeError("Row {} is invalid".format(row))
-        for col in range(self.f.a.cur['lyr']):
-            s, read = self.f.a.d['s'][ind(t, row, col)], False  # assign spot, and currently not valid read
-            if self.t == 'Read':
-                read = True
-                for i in range(col, self.f.a.cur['lyr']):  # see if the spot is a valid place for a reader
-                    if self.f.a.d['s'][ind(t, row, i)].full:
-                        read = False
-            if ((self.t in ('Rec', '2nd', 'Target') and col == self.r[0].s.col) or read or self.t in
-                ('Gate', '1st', 'Ctrl')) and not s.full:
-                self.place(s)
-                self.f.a.rewrite_code()  # rewrite the code
-                return  # once it happens once, end the function's call
-        raise RuntimeError("Row {} has no open spots".format(row))
+    def add_to_end(self, row, second_row = None):  # place an object after all other gates in the row
+        # second_row is reqiured if self.t in ('Ctrl', 'Read', '1st')
+        assert self.t in ('Gate', 'Ctrl', 'Read', '1st'), "add_to_end can only be called on primary object"
+        if self.t == 'Gate':
+            second_row = None  # no attached objects
+        second_t = 'c' if self.t == 'Read' else 'q'
+        min_col = self.f.a.cur['lyr']
+        while min_col > 0 and not self.f.a.d['s'][ind('q', row, min_col-1)].full and (second_row is None or \
+                not self.f.a.d['s'][ind(second_t, second_row, min_col-1)].full):
+            min_col -= 1
+        if min_col == self.f.a.cur['lyr']:
+            raise RuntimeError("Row {} has no room".format(row))
+        self.place(self.f.a.d['s'][ind('q', row, min_col)])
+        if len(self.r) != 0 and second_row is not None:
+            self.r[0].place(self.f.a.d['s'][ind(second_t, second_row, min_col)])
+        #self.f.a.rewrite_code()  # rewrite the code
 
     def delete(self):  # delete an object and the objects attached to it
         col = self.s.col
@@ -507,17 +506,13 @@ class App(tk.Frame):  # build the actual app
                                     break
                         if g is not None and self.find(line) != "":
                             new = Obj(g.f, g.k, g.d, g.t, g.s, [], g.r_no, g.cstm, g.ct)
-                            new.undragged = False
-                            new.add_to_end(self.find(line))
                             if g.d['prm']:
                                 new.c, new.widget['text'] = g.d['c']+cd.get(opn, cd.search(")", line) + "+1c"), \
                                     g.k[0:g.k.index("(")] + cd.get(opn, cd.search(")", line)+"+1c")
-                            if len(new.r) != 0:
-                                new.r[0].last_s = new.s
-                                if g == self.i_b['MEAS']:
-                                    new.r[0].add_to_end(self.find(str(cd.search("c", line))))
-                                else:
-                                    new.r[0].add_to_end(self.find(cd.search("]", line) + "+1c"))
+                            if g == self.i_b['MEAS']:
+                                new.add_to_end(self.find(line), self.find(str(cd.search("c", line))))
+                            else:
+                                new.add_to_end(self.find(line), self.find(cd.search("]", line) + "+1c"))
         except ValueError or _tkinter.TclError:
             if event.widget.search("INVALID FORMATTING\n", 1.0) == "1.0":
                 event.widget.delete("1.0", "1.0+" + str(len("INVALID FORMATTING\n")) + "c")

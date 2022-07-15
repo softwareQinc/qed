@@ -139,11 +139,11 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
             if self.t != 'Rec':  # control and target changes
                 if self.t == 'Target':
                     self.widget.place(x=self.s.x[0] + 2 * self.f.a.c, y=self.s.y[0] + 2 * self.f.a.c)
-                    if self.s.row < self.r[-1].s.row:
+                    if self.s.row < self.r[0].s.row:
                         self.lnks[0].place(y=self.s.y[0] + 10 * self.f.a.c)
                 elif self.t == '2nd':
-                    self.lnks[0].place(h=abs(self.r[-1].s.y[0] - self.s.y[0]) - 12 * self.f.a.c)
-                    if self.s.row < self.r[-1].s.row:
+                    self.lnks[0].place(h=abs(self.r[0].s.y[0] - self.s.y[0]) - 12 * self.f.a.c)
+                    if self.s.row < self.r[0].s.row:
                         self.lnks[0].place(y=self.s.y[0] + 12 * self.f.a.c)
                     if self.r_no > 1:
                         nw = Obj(self.f, self.k, self.d, '2nd', self.s, self.r + [self], self.r_no - 1, self.cstm,

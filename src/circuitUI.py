@@ -461,7 +461,8 @@ class App(tk.Frame):  # build the actual app
             for k in self.d['s']:  # delete all current widgets
                 if self.d['s'][k].obj is not None:
                     self.d['s'][k].obj.delete()
-            end_of_defs = cd.search("(\}|\])\n\n", tk.END, backwards=True, regexp=True)
+            # gate definitions end with '}' and pragma definitions end with ']'
+            end_of_defs = cd.search("(\}|\])\n", tk.END, backwards=True, regexp=True)
             mdp = int(end_of_defs.split('.')[0]) if end_of_defs else 5
             for i in range(6, int(cd.index('end').split('.')[0])):
                 line = str(i) + ".0"

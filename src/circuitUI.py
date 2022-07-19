@@ -687,7 +687,7 @@ class App(tk.Frame):  # build the actual app
                         self.d['s'][ind(w_t, cur+1, i)], s.k, s.row = s, ind(w_t, cur+1, i), cur+1
                     if s.full and s.obj is not None:  # move the object to its new location
                         s.obj.update_display(True)
-                    if n == reverse_rows[-1]:
+                    if n == reverse_rows[-1] and w_t == 'q':
                         if s.full:
                             if s.obj is None:
                                 make_full = True

@@ -205,8 +205,11 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                     gate_t = 'Target'
                 if self.t == 'Read':
                     gate_t = 'Rec'
-                self.r.append(Obj(self.f, self.k, self.d, gate_t, s, self.r + [self], self.r_no - 1, self.cstm,
-                                  self.ct))
+                for i in range(self.r_no):
+                    self.r.insert(0, Obj(self.f, self.k, self.d, gate_t, s, [self], self.r_no - 1 - i, self.cstm,
+                                      self.ct))
+                for i in range(self.r_no):
+                    self.r[i].r = [self] + [self.r[j] for j in range(self.r_no) if j != i]
             else:
                 for r in self.r:
                     r.update_display()
@@ -243,7 +246,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                 if ((self.t in ('Rec', '2nd', 'Target') and col == self.r[0].s.col) or read or self.t in
                         ('Gate', '1st', 'Ctrl')) and sel_y in s.y and (self.t in ('Rec', '2nd', 'Target') or
                         sel_x <= s.x[-1]) and (not s.full or (self.insert[0] == row and self.insert[1] == col and
-                        (len(self.r) == 0 or row != self.r[0].s.row))):
+                        (len(self.r) == 0 or row not in [obj.s.row for obj in self.r]))):
                     target_row, target_col = row, col
                     break
         if target_row is not None and target_col is not None:
@@ -313,21 +316,19 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
             if self.t == 'Rec':
                 self.widget.place(x=self.last_s.x[0]+4*self.f.a.c)
 
-    def add_to_end(self, row, second_row = None):  # place an object after all other gates in the row
-        # second_row is reqiured if self.t in ('Ctrl', 'Read', '1st')
+    def add_to_end(self, row, *other_rows):  # place an object after all other gates in the row
         assert self.t in ('Gate', 'Ctrl', 'Read', '1st'), "add_to_end can only be called on primary object"
-        if self.t == 'Gate':
-            second_row = None  # no attached objects
-        second_t = 'c' if self.t == 'Read' else 'q'
+        assert len(other_rows) == self.r_no, "add_to_end: number of arguments is not equal to number of gate qargs"
+        other_t = 'c' if self.t == 'Read' else 'q'
         min_col = self.f.a.cur['lyr']
-        while min_col > 0 and not self.f.a.d['s'][ind('q', row, min_col-1)].full and (second_row is None or \
-                not self.f.a.d['s'][ind(second_t, second_row, min_col-1)].full):
+        while min_col > 0 and not self.f.a.d['s'][ind('q', row, min_col-1)].full and \
+                not any(self.f.a.d['s'][ind(other_t, r, min_col-1)].full for r in other_rows):
             min_col -= 1
         if min_col == self.f.a.cur['lyr']:
             raise RuntimeError("Row {} has no room".format(row))
         self.place(self.f.a.d['s'][ind('q', row, min_col)])
-        if len(self.r) != 0 and second_row is not None:
-            self.r[0].place(self.f.a.d['s'][ind(second_t, second_row, min_col)])
+        for i in range(len(self.r)):
+            self.r[i].place(self.f.a.d['s'][ind(other_t, other_rows[i], min_col)])
         #self.f.a.rewrite_code()  # rewrite the code
 
     def delete(self):  # delete an object and the objects attached to it
@@ -440,8 +441,9 @@ class App(tk.Frame):  # build the actual app
         self.wire_canv.place(x=0, y=0, h=24*self.c*(self.cur['q']+self.cur['c']+1), w=16*self.c*(self.cur['lyr']+1))
 
     def find(self, start):  # find the row given by the written code
-        if self.code.get(self.code.search("[", start) + "+1c", self.code.search("]", start)) is not None:
-            return int(self.code.get(self.code.search("[", start) + "+1c", self.code.search("]", start)))
+        result = self.code.get(self.code.search("[", start) + "+1c", self.code.search("]", start))
+        if result is not None:
+            return int(result)
 
     def code_to_grid(self, event):  # when enter is clicked, modify the visual simulation to match
         cd, self.g_to_c = self.code, False
@@ -514,7 +516,12 @@ class App(tk.Frame):  # build the actual app
                             if g == self.i_b['MEAS']:
                                 new.add_to_end(self.find(line), self.find(str(cd.search("c", line))))
                             elif g.t in ('Ctrl', '1st'):
-                                new.add_to_end(self.find(line), self.find(cd.search("]", line) + "+1c"))
+                                rest = []
+                                pos = cd.search("]", line) + "+1c"
+                                for j in range(g.r_no):
+                                    rest.append(self.find(pos))
+                                    pos = cd.search("]", pos) + "+1c"
+                                new.add_to_end(self.find(line), *rest)
                             else:
                                 new.add_to_end(self.find(line))
         except (ValueError, _tkinter.TclError, AssertionError):

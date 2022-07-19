@@ -349,7 +349,8 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                         self.f.a.d['s'][ind(t, i, obj.s.col)].empty()
             self.f.a.d['s'][obj.s.k].empty()
             obj.widget.destroy()
-        self.f.a.left_shift(col)
+        if self.f.a.g_to_c:
+            self.f.a.left_shift(col)
         self.f.a.rewrite_code()  # rewrite code to match board
 
 
@@ -458,10 +459,11 @@ class App(tk.Frame):  # build the actual app
             for k in self.d['s']:  # delete all current widgets
                 if self.d['s'][k].obj is not None:
                     self.d['s'][k].obj.delete()
-            mdp = int(cd.search("\n\n", tk.END, backwards=True)[0:cd.search("\n\n", tk.END, backwards=True).index(".")])
-            for i in range(6, cd.get("1.0", tk.END).count("\n")+1):
+            end_of_defs = cd.search("(\}|\])\n\n", tk.END, backwards=True, regexp=True)
+            mdp = int(end_of_defs.split('.')[0]) if end_of_defs else 5
+            for i in range(6, int(cd.index('end').split('.')[0])):
                 line = str(i) + ".0"
-                if i < mdp:
+                if i <= mdp:
                     if cd.search("// pragma custom_gate_matrix", line, str(i+1)+".0") != "":  # overwrite custom mtrces
                         for k in self.i_b:
                             if self.i_b[k].cstm and self.i_b[k].ct == 'mtrx' and cd.search(self.i_b[k].c, line) != "":
@@ -487,10 +489,10 @@ class App(tk.Frame):  # build the actual app
                                 self.i_b[k].d['def'] = cd.get(line, cd.search("}", line)+"+1c") + "\n"
                 else:
                     opn, g = cd.search("(", line), None
-                    if cd.search(";", str(i)+".0", str(i+1)+".0") != "":
+                    if cd.search(";", str(i)+".0", str(i + 1) + ".0") != "":
                         if cd.search("measure", line, str(i + 1) + ".0") != "":
                             g = self.i_b['MEAS']
-                        elif cd.search("//", line) != "":
+                        elif cd.search("//", line, str(i + 1) + ".0") != "":
                             if cd.search("custom_gate_action", line) != "":
                                 g = self.i_b[cd.get(cd.search("custom_gate_action", line)+"+19c",
                                                     cd.search("q", line)+"-1c")]
@@ -515,7 +517,7 @@ class App(tk.Frame):  # build the actual app
                                 new.add_to_end(self.find(line), self.find(cd.search("]", line) + "+1c"))
                             else:
                                 new.add_to_end(self.find(line))
-        except ValueError or _tkinter.TclError:
+        except (ValueError, _tkinter.TclError, AssertionError):
             if event.widget.search("INVALID FORMATTING\n", 1.0) == "1.0":
                 event.widget.delete("1.0", "1.0+" + str(len("INVALID FORMATTING\n")) + "c")
             event.widget.insert(1.0, "INVALID FORMATTING\n")

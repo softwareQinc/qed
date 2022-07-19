@@ -145,12 +145,6 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                     self.lnks[0].place(h=abs(self.r[0].s.y[0] - self.s.y[0]) - 12 * self.f.a.c)
                     if self.s.row < self.r[0].s.row:
                         self.lnks[0].place(y=self.s.y[0] + 12 * self.f.a.c)
-                    if self.r_no > 1:
-                        nw = Obj(self.f, self.k, self.d, '2nd', self.s, self.r + [self], self.r_no - 1, self.cstm,
-                                 self.ct)
-                        for obj in self.r:
-                            obj.r.append(nw)
-                        self.r.append(nw)
             else:  # attach links and shift receptor properly
                 if len(self.lnks) == 1:
                     self.lnks.append(tk.Label(self.f, bg='dark grey'))
@@ -206,8 +200,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                 if self.t == 'Read':
                     gate_t = 'Rec'
                 for i in range(self.r_no):
-                    self.r.insert(0, Obj(self.f, self.k, self.d, gate_t, s, [self], self.r_no - 1 - i, self.cstm,
-                                      self.ct))
+                    self.r.insert(0, Obj(self.f, self.k, self.d, gate_t, s, [self], self.r_no, self.cstm, self.ct))
                 for i in range(self.r_no):
                     self.r[i].r = [self] + [self.r[j] for j in range(self.r_no) if j != i]
             else:
@@ -525,7 +518,7 @@ class App(tk.Frame):  # build the actual app
                                 new.add_to_end(self.find(line), *rest)
                             else:
                                 new.add_to_end(self.find(line))
-        except (ValueError, _tkinter.TclError, AssertionError):
+        except (ValueError, _tkinter.TclError, AssertionError, KeyError):
             if event.widget.search("INVALID FORMATTING\n", 1.0) == "1.0":
                 event.widget.delete("1.0", "1.0+" + str(len("INVALID FORMATTING\n")) + "c")
             event.widget.insert(1.0, "INVALID FORMATTING\n")

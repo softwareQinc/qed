@@ -93,7 +93,7 @@
     "MEAS": {
       "n": "Measure",
       "c": "",
-      "bg": "",
+      "bg": "#ececec",
       "prm": false
     }
   }

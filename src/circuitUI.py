@@ -81,9 +81,10 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
             self.undragged = frame, key, g_d, type, spot, rels, rel_no, custom, cstm_type, g_d['c'], spot, [], True
         self.insert = [None, None]
         if type in ('Rec', 'Read'):
-            self.widget = tk.Label(frame, text=self.k, relief='ridge', borderwidth=5)  # build the label
+            self.widget = tk.Label(frame, text=self.k, background=self.d['bg'], foreground = '#000', relief='ridge',
+                                   borderwidth=5)  # build the label
         else:
-            self.widget = tk.Label(frame, text=self.k, background=self.d['bg'], relief='raised',
+            self.widget = tk.Label(frame, text=self.k, background=self.d['bg'], foreground = '#000', relief='raised',
                                    wraplength=11 * self.f.a.c)  # build the label
         self.widget.place(x=spot.x[0], y=spot.y[0], h=12 * self.f.a.c, w=12 * self.f.a.c)  # standard
         if type in ('Target', 'Rec', 'Read'):  # other placements
@@ -98,6 +99,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                 self.s, True  # assign drag data
             if self.undragged and len(self.r) == 0:
                 Obj(self.f, self.k, self.d, self.t, self.s, [], self.r_no, self.cstm, self.ct)
+            self.lift_widgets()
             self.insert = [None, None]
         self.widget.bind('<Button-1>', drag_start)  # clicking the mouse begins dragging
 
@@ -113,7 +115,8 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                     irow != self.last_s.row or icol not in (self.last_s.col, self.last_s.col+1)) and \
                     self.t not in ('Read', 'Rec'):
                 s = self.f.a.d['s'][ind('q', irow, icol)]
-                if s.full and s.obj is not None and (icol == 0 or self.f.a.d['s'][ind('q', irow, icol-1)].full):
+                if s.full and s.obj is not None and s.obj not in self.r and \
+                        (icol == 0 or self.f.a.d['s'][ind('q', irow, icol-1)].full):
                     self.insert[0] = irow
                     self.insert[1] = icol
                     if len(self.insert) == 2:
@@ -129,11 +132,20 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
         self.widget.bind('<ButtonRelease-1>', self.drag_end)  # releasing the mouse (even after one click)
         self.widget.bind('<Double-Button-1>', lambda _: self.delete())  # double-clicking deletes the widget
 
+    def lift_widgets(self):
+        if self.t in ('Gate', 'Ctrl', 'Read', '1st'):
+            self.widget.lift()
+            for obj in reversed(self.r):
+                obj.widget.lift()
+        else:
+            self.r[0].lift_widgets()
+
     def update_display(self, update_rest = False):  # update placement of widgets (incl. links)
         self.widget.place(x=self.s.x[0], y=self.s.y[0])  # place in generic current spot
         if self.t in ('Target', '2nd', 'Rec'):  # if it is the second, attach and place
             if len(self.lnks) == 0:
                 self.lnks = [tk.Label(self.f, background='dark grey')]  # build the link
+                self.lift_widgets()
             self.lnks[0].place(x=self.r[0].s.x[0] + 6 * self.f.a.c, y=self.r[0].s.y[0] + 12 * self.f.a.c, w=2,
                                h=abs(self.r[0].s.y[0] - self.s.y[0]) - 10 * self.f.a.c)
             if self.t != 'Rec':  # control and target changes
@@ -148,6 +160,7 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
             else:  # attach links and shift receptor properly
                 if len(self.lnks) == 1:
                     self.lnks.append(tk.Label(self.f, bg='dark grey'))
+                    self.lift_widgets()
                 for i in range(len(self.lnks)):
                     self.lnks[i].place(x=self.r[0].s.x[0] + 10 * self.f.a.c + 5 * i,
                                        y=self.r[0].s.y[0] + 10 * self.f.a.c,
@@ -582,8 +595,9 @@ class App(tk.Frame):  # build the actual app
                     self.bnk.place(w=4*self.c*(4*self.init['lyr']+1))
                     if q_no != 1:
                         gate_type = '1st'
-                    self.i_b[nm] = Obj(self.f_d['g']['f'], nm, {'n': nm, 'c': nm, 'bg': None, 'prm': False, 'def': dta},
-                                       gate_type, Spot(0, self.init['lyr']-1, '', self), [], q_no-1, True, 'group')
+                    self.i_b[nm] = Obj(self.f_d['g']['f'], nm,
+                                       {'n': nm, 'c': nm, 'bg': "#ececec", 'prm': False, 'def': dta},
+                                       gate_type, Spot(0, self.init['lyr'] - 1, '', self), [], q_no - 1, True, 'group')
                     frame.destroy()
                     self.rewrite_code()
                 except ValueError:
@@ -636,7 +650,7 @@ class App(tk.Frame):  # build the actual app
                 df = "\n// pragma custom_gate_matrix {}\n// {}\n\n".format(
                     v['nm'], str(np.array(v['mtrx'])).replace("\n", "\n// "))
                 self.i_b[v['nm']] = \
-                    Obj(self.f_d['g']['f'], v['nm'], {'n': v['nm'], 'bg': None, 'c': v['nm'], 'mtrx':
+                    Obj(self.f_d['g']['f'], v['nm'], {'n': v['nm'], 'bg': "#ececec", 'c': v['nm'], 'mtrx':
                         np.array(v['mtrx']), 'N': v['n'], 'prm': False, 'def': df}, t,
                         Spot(0, self.init['lyr']-1, '', self), [], v['n']-1, True, 'mtrx')
                 self.rewrite_code()

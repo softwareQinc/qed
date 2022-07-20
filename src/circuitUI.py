@@ -238,31 +238,44 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
 
         t = 'c' if self.t == 'Rec' else 'q'
         target_row, target_col = None, None
-        for row in range(self.f.a.cur[t]):
-            if self.last_s.t != '' and self.t != 'Rec' and row == self.last_s.row and self.insert[0] is None:
-                continue  # skip over this row as it is invalid
-            for col in range(self.f.a.cur['lyr']):
-                sel_y, sel_x = self.widget.winfo_y(), self.widget.winfo_x()
-                s, read = self.f.a.d['s'][ind(t, row, col)], False  # assign spot, and currently not valid read
-                if self.t == 'Read':
-                    read = True
-                    for i in range(col, self.f.a.cur['lyr']):  # see if the spot is a valid place for a reader
-                        if self.f.a.d['s'][ind(t, row, i)].full:
-                            read = False
-                if ((self.t in ('Rec', '2nd', 'Target') and col == self.r[0].s.col) or read or self.t in
-                        ('Gate', '1st', 'Ctrl')) and sel_y in s.y and (self.t in ('Rec', '2nd', 'Target') or
-                        sel_x <= s.x[-1]) and (not s.full or (self.insert[0] == row and self.insert[1] == col and
-                        (len(self.r) == 0 or row not in [obj.s.row for obj in self.r]))):
-                    target_row, target_col = row, col
-                    break
-        if target_row is not None and target_col is not None:
+        if self.insert[0] is not None:  # try inserting
+            if self.t in ('Gate', '1st', 'Ctrl') or (self.t in ('2nd', 'Target') and self.insert[1] == self.r[0].s.col):
+                target_row, target_col = self.insert
+        else:  # try adding to end
+            sel_y, sel_x = self.widget.winfo_y(), self.widget.winfo_x()
+            for row in range(self.f.a.cur[t]):
+                for col in range(self.f.a.cur['lyr']):
+                    s, read = self.f.a.d['s'][ind(t, row, col)], False  # assign spot, and currently not valid read
+                    if sel_y not in s.y:  # not the correct row/wire
+                        continue
+                    if self.t == 'Read':
+                        read = True
+                        for i in range(col, self.f.a.cur['lyr']):  # see if the spot is a valid place for a reader
+                            if self.f.a.d['s'][ind(t, row, i)].full:
+                                read = False
+                    if s.full:
+                        if s.obj is self and sel_x <= s.x[-1]:  # remains in same spot
+                            break
+                        if s.obj is None and len(self.r) > 0 and col == self.r[0].s.col:  # replace spot with link
+                            target_row, target_col = row, col
+                            break
+                    else:
+                        if ((self.t in ('Rec', '2nd', 'Target') and col == self.r[0].s.col) or read or self.t in
+                                ('Gate', '1st', 'Ctrl')) and (self.t in ('Rec', '2nd', 'Target') or sel_x <= s.x[-1]):
+                            target_row, target_col = row, col
+                            break
+        if target_row is not None and target_col is not None:  # shift left as much as possible
             if self.t not in ('Rec', '2nd', 'Target'):
                 while target_col > 0:
                     if self.t in ('1st', 'Ctrl') and len(self.r) > 0 and target_col == self.r[-1].s.col:
                         break
-                    if self.f.a.d['s'][ind(t, target_row, target_col-1)].full:
+                    prev_spot = self.f.a.d['s'][ind(t, target_row, target_col-1)]
+                    if prev_spot.full:
+                        if prev_spot.obj is self:  # remains in same spot
+                            target_row, target_col = None, None
                         break
                     target_col -= 1
+        if target_row is not None and target_col is not None:
             old_row, old_col = self.s.row, self.s.col
             if len(self.r) > 0:
                 need_rows = {target_row} if self.t != 'Rec' else set()   # all needed rows
@@ -704,9 +717,10 @@ class App(tk.Frame):  # build the actual app
                     if n == reverse_rows[-1] and w_t == 'q':
                         if s.full:
                             if s.obj is None:
-                                make_full = True
+                                # Assume last spot in row would only be full from placing a measurement
+                                make_full = not self.d['s'][ind(w_t, cur, rnge-1)].full
                             else:
-                                make_full = any(obj.s.row < n and not obj.undragged for obj in s.obj.r)
+                                make_full = any(obj.s.row<n for obj in s.obj.r if not obj.undragged and obj.s.t == 'q')
                 if i == 0:
                     self.d['w'][t+str(row+1)] = Wire(self.f_d['g']['f'], row+1, t)
                 self.d['s'][ind(t, row+1, i)] = Spot(row+1, i, t, self)

@@ -3,8 +3,10 @@ import tkinter as tk
 from tkinter import filedialog as fd
 import json
 import numpy as np
+import os
 
-jd = json.load(open("config.json"))  # open the config.json file to build the jd dictionary
+path = os.path.dirname(os.path.abspath(__file__))
+jd = json.load(open(path + "/config.json"))  # open the config.json file to build the jd dictionary
 
 
 def ind(wire_type, row, col):  # create a default index creator used for spots

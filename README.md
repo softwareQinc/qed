@@ -3,6 +3,5 @@ Python quantum circuit editor
 
 ## Usage
 ```
-cd src
-python3 qed.py
+python3 src/qed.py
 ```

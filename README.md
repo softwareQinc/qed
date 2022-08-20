@@ -4,5 +4,5 @@ Python quantum circuit editor
 ## Usage
 ```
 cd src
-python3 circuitUI.py
+python3 qed.py
 ```

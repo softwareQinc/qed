@@ -35,7 +35,7 @@ class ScrollFrame(tk.Frame):  # allows both scrollbars, used as the main frame t
 
 class Wire:  # Create class for all wires created
     def __init__(self, fr, row, type):
-        self.label, place_row = tk.Label(fr, text="{1}  {0}".format(str(row), type)), row  # create label
+        self.label, place_row = tk.Label(fr, text="{1}[{0}]".format(str(row), type)), row  # create label
         self.del_bttn, self.add_bttn = tk.Button(fr, command=lambda: App.delete(fr.a, type, row), text="-", width=1), \
             tk.Button(fr, command=lambda: App.add(fr.a, type, row), text="+", width=1)  # add and delete wire buttons
         if type == 'c':  # classic protocol
@@ -53,7 +53,7 @@ class Wire:  # Create class for all wires created
         self.wire.lower()  # lower the wire to avoid accidental covering
 
     def relabel(self, app, new_row, type):  # rename a wire based upon a new given name
-        self.label['text'] = "{1}  {0}".format(str(new_row), type)
+        self.label['text'] = "{1}[{0}]".format(str(new_row), type)
         self.add_bttn['command'], self.del_bttn['command'] = (lambda: App.add(app, type, new_row)), \
             (lambda: App.delete(app, type, new_row))   # give new commands to avoid previous numbers carrying over
 

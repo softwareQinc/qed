@@ -560,8 +560,14 @@ class App(tk.Frame):  # build the actual app
         self.g_to_c = True
 
     def save_code(self):  # save the code as a new file
-        with open(fd.asksaveasfilename(filetypes=(("QASM files", "*.qasm"), ("All files", "*.*"))), 'w') as f:
-            f.write(self.code.get("1.0", tk.END))
+        file_path = fd.asksaveasfilename(filetypes=(("QASM files", "*.qasm"), ("All files", "*.*")))
+        if file_path:
+            try:
+                with open(file_path, 'w') as f:
+                    f.write(self.code.get("1.0", tk.END))
+            except Exception as e:
+                tk.messagebox.showerror('Error saving file', 'Unable to write to: %r' % file_path)
+            
 
     def grouped(self):  # build a new gate by grouping other gates together
         fr = tk.Toplevel(self)

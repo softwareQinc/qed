@@ -36,8 +36,8 @@ class ScrollFrame(tk.Frame):  # allows both scrollbars, used as the main frame t
 class Wire:  # Create class for all wires created
     def __init__(self, fr, row, type):
         self.label, place_row = tk.Label(fr, text="{1}  {0}".format(str(row), type)), row  # create label
-        self.del_bttn, self.add_bttn = tk.Button(fr, command=lambda: App.delete(fr.a, type, row), text="-"), \
-            tk.Button(fr, command=lambda: App.add(fr.a, type, row), text="+")  # add and delete wire buttons
+        self.del_bttn, self.add_bttn = tk.Button(fr, command=lambda: App.delete(fr.a, type, row), text="-", width=1), \
+            tk.Button(fr, command=lambda: App.add(fr.a, type, row), text="+", width=1)  # add and delete wire buttons
         if type == 'c':  # classic protocol
             self.wire, place_row = tk.Label(fr.a.wire_canv, text="- " * 500000, fg = "#7f7f7f"), \
                                    row + fr.a.cur['q']  # create wire
@@ -48,7 +48,7 @@ class Wire:  # Create class for all wires created
     def place(self, c, new_row):  # move a wire based upon a given row
         self.add_bttn.place(x=13*c, y=(20*new_row+41)*c)
         self.del_bttn.place(x=c, y=(20*new_row+31)*c)
-        self.label.place(x=5*c, y=(20*new_row+31)*c)
+        self.label.place(x=8*c, y=(20*new_row+31)*c)
         self.wire.place(x=13*c, y=4*(5*new_row+8)*c, w=1000000, h=2*c)
         self.wire.lower()  # lower the wire to avoid accidental covering
 
@@ -222,6 +222,14 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
             else:
                 for r in self.r:
                     r.update_display()
+        if self.t in ('Read', 'Rec'): # redraw gates over the measurement wire
+            read = self if self.t == 'Read' else self.r[0]
+            rec = self if self.t == 'Rec' else self.r[0]
+            if not rec.undragged:
+                for row in range(read.s.row + 1, self.f.a.cur['q']):
+                    spot = self.f.a.d['s'][ind('q', row, read.s.col)]
+                    if spot.obj is not None:
+                        spot.obj.lift_widgets()
 
     def drag_end(self, event):  # finish placing an object and have it snap to position
         '''

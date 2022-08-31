@@ -262,6 +262,8 @@ class Obj:  # Create a class for creating items (gates, detectors, and connector
                         if s.obj is None and len(self.r) > 0 and col == self.r[0].s.col:  # replace spot with link
                             target_row, target_col = row, col
                             break
+                        if s.obj is not None and s.obj.t == 'Read':  # can't place after measurement
+                            break
                     else:
                         if ((self.t in ('Rec', '2nd', 'Target') and col == self.r[0].s.col) or read or self.t in
                                 ('Gate', '1st', 'Ctrl')) and (self.t in ('Rec', '2nd', 'Target') or sel_x <= s.x[-1]):

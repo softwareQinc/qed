@@ -39,7 +39,7 @@ class Wire:  # Create class for all wires created
         self.del_bttn, self.add_bttn = tk.Button(fr, command=lambda: App.delete(fr.a, type, row), text="-"), \
             tk.Button(fr, command=lambda: App.add(fr.a, type, row), text="+")  # add and delete wire buttons
         if type == 'c':  # classic protocol
-            self.wire, place_row = tk.Label(fr.a.wire_canv, text="_ " * 500000, fg = "#7f7f7f"), \
+            self.wire, place_row = tk.Label(fr.a.wire_canv, text="- " * 500000, fg = "#7f7f7f"), \
                                    row + fr.a.cur['q']  # create wire
         if type == 'q':  # quantum protocol
             self.wire = tk.Frame(fr.a.wire_canv, background='dark grey')  # create and place the wire itself

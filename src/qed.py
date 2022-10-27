@@ -423,7 +423,7 @@ class App(tk.Frame):  # build the actual app
         self.rewrite_code()
 
     def rewrite_code(self):  # simplify the code writing for the semicolons and commas
-        c = 'OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[{}];\ncreg c[{}];\n\n'.\
+        c = 'OPENQASM 2.0;\ninclude "qelib1.inc";\n\nqreg q[{}];\ncreg c[{}];\n'.\
             format(str(self.cur['q']), str(self.cur['c']))
         if self.g_to_c:
             for g in self.i_b:
